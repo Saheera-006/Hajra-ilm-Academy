@@ -33,7 +33,8 @@ spring:
   flyway:
     enabled: true
 server:
-  port: ${SERVER_PORT:8081}
+  port: ${PORT:${SERVER_PORT:8081}}
+  address: 0.0.0.0
   # Set to "framework" when running behind a reverse proxy you control, so the real client IP is used.
   forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
   servlet:
