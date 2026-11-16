@@ -11,51 +11,64 @@ spring:
       mail.smtp.connectiontimeout: 5000
       mail.smtp.timeout: 5000
       mail.smtp.writetimeout: 5000
+
   servlet:
     multipart:
       max-file-size: 10MB
       max-request-size: 11MB
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}   # no default on purpose: the app must not start without it
+    password: ${DB_PASSWORD}
     hikari:
       data-source-properties:
         createDatabaseIfNotExist: true
+
   jpa:
     open-in-view: false
     hibernate:
-      ddl-auto: none           # the schema is owned by the Flyway migrations only
+      ddl-auto: none
     properties:
       hibernate:
         jdbc:
           time_zone: UTC
+
   flyway:
     enabled: true
+
 server:
   port: ${PORT:${SERVER_PORT:8081}}
   address: 0.0.0.0
-  # Set to "framework" when running behind a reverse proxy you control, so the real client IP is used.
+
   forward-headers-strategy: ${FORWARD_HEADERS_STRATEGY:none}
+
   servlet:
     session:
       timeout: 30m
       tracking-modes: cookie
       cookie:
         http-only: true
-        same-site: lax
         secure: ${SESSION_COOKIE_SECURE:false}
+        same-site: ${SESSION_COOKIE_SAME_SITE:lax}
+
   error:
     include-stacktrace: never
     include-message: never
     include-binding-errors: never
     include-exception: false
+
 app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+
+  security:
+    cross-site-cookies: ${CROSS_SITE_COOKIES:false}
+
   rate-limit:
     per-minute: ${RATE_LIMIT_PER_MINUTE:120}
     auth-per-minute: ${AUTH_RATE_LIMIT_PER_MINUTE:10}
+
   portal:
     demo-payments: ${DEMO_PAYMENTS:false}
     admin-email: ${ADMIN_EMAIL:}
