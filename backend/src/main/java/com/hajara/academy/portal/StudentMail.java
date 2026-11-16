@@ -1,16 +1,20 @@
 
 package com.hajara.academy.portal;
 
-import jakarta.mail.MessagingException;
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 @Service
 class StudentMail {
@@ -18,18 +22,26 @@ class StudentMail {
     private static final Logger LOG =
             LoggerFactory.getLogger(StudentMail.class);
 
-    private final ObjectProvider<JavaMailSender> senders;
+    private static final URI RESEND_URL =
+            URI.create("https://api.resend.com/emails");
+
+    private final HttpClient httpClient;
+    private final ObjectMapper mapper;
+    private final String apiKey;
     private final String from;
-    private final String host;
 
     StudentMail(
-            ObjectProvider<JavaMailSender> senders,
-            @Value("${app.student-mail.from}") String from,
-            @Value("${spring.mail.host}") String host) {
+            @Value("${app.resend.api-key:}") String apiKey,
+            @Value("${app.resend.from:}") String from) {
 
-        this.senders = senders;
-        this.from = from;
-        this.host = host;
+        this.apiKey = apiKey.trim();
+        this.from = from.trim();
+
+        this.mapper = new ObjectMapper();
+
+        this.httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(10))
+                .build();
     }
 
     void verification(String email, String code) {
@@ -50,18 +62,6 @@ class StudentMail {
             String code,
             int minutes) {
 
-        if (from.isBlank() || host.isBlank()) {
-            LOG.error("Student mail configuration is incomplete");
-            return false;
-        }
-
-        JavaMailSender sender = senders.getIfAvailable();
-
-        if (sender == null) {
-            LOG.error("JavaMailSender is unavailable");
-            return false;
-        }
-
         String instruction =
                 "Copy this code and enter it in the academy website. "
                 + "It expires in " + minutes + " minutes.";
@@ -80,7 +80,7 @@ class StudentMail {
               <div style="max-width:520px;margin:auto;background:white;
                           border:1px solid #dce4ed;border-radius:16px">
                 <div style="background:#172d43;color:#f5daa0;
-                            padding:20px 24px;border-radius:16px 16px 0 0">
+                            padding:20px 24px;border-radius:16px 16px 0">
                   <strong>Hajara Ilm Academy</strong>
                 </div>
                 <div style="padding:24px">
@@ -100,73 +100,92 @@ class StudentMail {
             </div>
             """.formatted(title, instruction, code);
 
-        try {
-            var message = sender.createMimeMessage();
-
-            var helper = new MimeMessageHelper(
-                    message, true, "UTF-8");
-
-            helper.setFrom(from);
-            helper.setTo(email);
-            helper.setSubject(title + " | Hajara Ilm Academy");
-            helper.setText(plain, html);
-
-            sender.send(message);
-            return true;
-
-        } catch (MailException | MessagingException e) {
-            LOG.error(
-                "Student code email failed. Exception type: {}",
-                e.getClass().getSimpleName()
-            );
-            return false;
-        }
-    }
-
-    boolean welcome(String email, String name, String studentId) {
-        return send(
-            email,
-            "Welcome to Hajara Ilm Academy",
-            "Assalamu Alaikum " + name + ",\n\n"
-            + "Your student account for the Islamic Learning Programme "
-            + "has been created. Your student ID is " + studentId
-            + ". You can now sign in to the student portal."
-            + "\n\nHajara Ilm Academy"
+        return sendEmail(
+                email,
+                title + " | Hajara Ilm Academy",
+                plain,
+                html
         );
     }
 
-    private boolean send(
+    boolean welcome(String email, String name, String studentId) {
+        String body =
+                "Assalamu Alaikum " + name + ",\n\n"
+                + "Your student account for the Islamic Learning Programme "
+                + "has been created. Your student ID is " + studentId
+                + ". You can now sign in to the student portal."
+                + "\n\nHajara Ilm Academy";
+
+        return sendEmail(
+                email,
+                "Welcome to Hajara Ilm Academy",
+                body,
+                null
+        );
+    }
+
+    private boolean sendEmail(
             String email,
             String subject,
-            String body) {
+            String plain,
+            String html) {
 
-        if (from.isBlank() || host.isBlank()) {
-            LOG.error("Student mail configuration is incomplete");
+        if (apiKey.isBlank() || from.isBlank()) {
+            LOG.error("Resend email configuration is incomplete");
             return false;
         }
-
-        JavaMailSender sender = senders.getIfAvailable();
-
-        if (sender == null) {
-            LOG.error("JavaMailSender is unavailable");
-            return false;
-        }
-
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setFrom(from);
-        message.setTo(email);
-        message.setSubject(subject);
-        message.setText(body);
 
         try {
-            sender.send(message);
-            return true;
+            ObjectNode payload = mapper.createObjectNode();
 
-        } catch (MailException e) {
+            payload.put("from", from);
+            payload.putArray("to").add(email);
+            payload.put("subject", subject);
+            payload.put("text", plain);
+
+            if (html != null) {
+                payload.put("html", html);
+            }
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(RESEND_URL)
+                    .timeout(Duration.ofSeconds(20))
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .POST(HttpRequest.BodyPublishers.ofString(
+                            mapper.writeValueAsString(payload)))
+                    .build();
+
+            HttpResponse<String> response =
+                    httpClient.send(
+                            request,
+                            HttpResponse.BodyHandlers.ofString()
+                    );
+
+            int status = response.statusCode();
+
+            if (status >= 200 && status < 300) {
+                LOG.info("Resend accepted student email request");
+                return true;
+            }
+
+            // Avoid logging API keys, OTPs or recipient addresses.
             LOG.error(
-                "Student email failed. Exception type: {}",
-                e.getClass().getSimpleName()
+                    "Resend email request failed. HTTP status: {}",
+                    status
+            );
+
+            return false;
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            LOG.error("Resend email request interrupted");
+            return false;
+
+        } catch (IOException | RuntimeException e) {
+            LOG.error(
+                    "Resend email request failed. Exception type: {}",
+                    e.getClass().getSimpleName()
             );
             return false;
         }
