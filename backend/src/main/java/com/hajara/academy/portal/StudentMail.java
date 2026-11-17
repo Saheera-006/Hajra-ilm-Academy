@@ -22,20 +22,23 @@ class StudentMail {
     private static final Logger LOG =
             LoggerFactory.getLogger(StudentMail.class);
 
-    private static final URI RESEND_URL =
-            URI.create("https://api.resend.com/emails");
+    private static final URI BREVO_URL =
+            URI.create("https://api.brevo.com/v3/smtp/email");
 
     private final HttpClient httpClient;
     private final ObjectMapper mapper;
     private final String apiKey;
-    private final String from;
+    private final String senderEmail;
+    private final String senderName;
 
     StudentMail(
-            @Value("${app.resend.api-key:}") String apiKey,
-            @Value("${app.resend.from:}") String from) {
+            @Value("${app.brevo.api-key:}") String apiKey,
+            @Value("${app.brevo.sender-email:}") String senderEmail,
+            @Value("${app.brevo.sender-name:Hajara Ilm Academy}") String senderName) {
 
         this.apiKey = apiKey.trim();
-        this.from = from.trim();
+        this.senderEmail = senderEmail.trim();
+        this.senderName = senderName.trim();
 
         this.mapper = new ObjectMapper();
 
@@ -109,6 +112,7 @@ class StudentMail {
     }
 
     boolean welcome(String email, String name, String studentId) {
+
         String body =
                 "Assalamu Alaikum " + name + ",\n\n"
                 + "Your student account for the Islamic Learning Programme "
@@ -130,28 +134,34 @@ class StudentMail {
             String plain,
             String html) {
 
-        if (apiKey.isBlank() || from.isBlank()) {
-            LOG.error("Resend email configuration is incomplete");
+        if (apiKey.isBlank() || senderEmail.isBlank()) {
+            LOG.error("Brevo email configuration is incomplete");
             return false;
         }
 
         try {
             ObjectNode payload = mapper.createObjectNode();
 
-            payload.put("from", from);
-            payload.putArray("to").add(email);
+            ObjectNode sender = payload.putObject("sender");
+            sender.put("name", senderName);
+            sender.put("email", senderEmail);
+
+            ObjectNode recipient = payload.putArray("to").addObject();
+            recipient.put("email", email);
+
             payload.put("subject", subject);
-            payload.put("text", plain);
+            payload.put("textContent", plain);
 
             if (html != null) {
-                payload.put("html", html);
+                payload.put("htmlContent", html);
             }
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(RESEND_URL)
+                    .uri(BREVO_URL)
                     .timeout(Duration.ofSeconds(20))
-                    .header("Authorization", "Bearer " + apiKey)
+                    .header("api-key", apiKey)
                     .header("Content-Type", "application/json")
+                    .header("Accept", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(
                             mapper.writeValueAsString(payload)))
                     .build();
@@ -165,13 +175,13 @@ class StudentMail {
             int status = response.statusCode();
 
             if (status >= 200 && status < 300) {
-                LOG.info("Resend accepted student email request");
+                LOG.info("Brevo accepted student email request");
                 return true;
             }
 
-            // Avoid logging API keys, OTPs or recipient addresses.
+            // Never log API keys, OTPs or recipient addresses.
             LOG.error(
-                    "Resend email request failed. HTTP status: {}",
+                    "Brevo email request failed. HTTP status: {}",
                     status
             );
 
@@ -179,12 +189,12 @@ class StudentMail {
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            LOG.error("Resend email request interrupted");
+            LOG.error("Brevo email request interrupted");
             return false;
 
         } catch (IOException | RuntimeException e) {
             LOG.error(
-                    "Resend email request failed. Exception type: {}",
+                    "Brevo email request failed. Exception type: {}",
                     e.getClass().getSimpleName()
             );
             return false;

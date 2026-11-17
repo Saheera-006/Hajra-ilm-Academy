@@ -62,6 +62,7 @@ app:
     admin-email: ${ADMIN_EMAIL:}
     admin-password: ${ADMIN_PASSWORD:}
 
-  resend:
-    api-key: ${RESEND_API_KEY:}
-    from: ${RESEND_FROM:}
+  brevo:
+    api-key: ${BREVO_API_KEY:}
+    sender-email: ${BREVO_SENDER_EMAIL:}
+    sender-name: ${BREVO_SENDER_NAME:Hajara Ilm Academy}
