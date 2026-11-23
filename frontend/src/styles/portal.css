@@ -1,0 +1,53 @@
+/* Admin + Student portal theme. Scoped to .portal-theme so the public website is never affected. */
+.portal-theme { font-family: "Noto Sans", "Noto Sans Tamil", system-ui, sans-serif; color: var(--p-text); background: var(--p-bg); }
+.portal-theme h1, .portal-theme h2, .portal-theme h3, .portal-theme h4 { font-family: "Noto Sans", "Noto Sans Tamil", system-ui, sans-serif; }
+.portal-theme[data-theme="dark"] {
+  --p-bg: #0a121f; --p-surface: #13243a; --p-surface-2: #1b3048; --p-surface-3: #243c57; --p-input: #0e1b2c;
+  --p-border: #30445d; --p-text: #edf3fb; --p-muted: #aabbd0;
+  --p-accent: #d9b879; --p-accent-hover: #edce93; --p-accent-fg: #15263b; --p-sidebar: #0d1929;
+}
+.portal-theme[data-theme="light"] {
+  --p-bg: #f4f6fa; --p-surface: #ffffff; --p-surface-2: #f7f8fb; --p-surface-3: #e8edf5; --p-input: #ffffff;
+  --p-border: #d9e1ec; --p-text: #172d43; --p-muted: #61748a;
+  --p-accent: #244c78; --p-accent-hover: #1b3b60; --p-accent-fg: #ffffff; --p-sidebar: #ffffff;
+}
+.portal-theme ::selection { background: var(--p-accent); color: var(--p-accent-fg); }
+.portal-theme :focus-visible { outline: 2px solid var(--p-accent); outline-offset: 2px; }
+.portal-theme [lang="ar"] { font-family: "Amiri", "Traditional Arabic", serif; line-height: 1.9; }
+.portal-bg-grid { background-image: radial-gradient(circle at 1px 1px, rgba(93,137,190,.12) 1px, transparent 0); background-size: 28px 28px; }
+.portal-scroll::-webkit-scrollbar { width: 8px; height: 8px; } .portal-scroll::-webkit-scrollbar-thumb { background: var(--p-border); border-radius: 8px; }
+
+/* Announcement ticker: continuous scroll, pauses on hover/focus, stops for reduced-motion users. */
+@keyframes portal-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.portal-marquee-track { display: flex; width: max-content; animation: portal-marquee var(--marquee-duration, 40s) linear infinite; }
+.portal-marquee:hover .portal-marquee-track, .portal-marquee:focus-within .portal-marquee-track { animation-play-state: paused; }
+@media (prefers-reduced-motion: reduce) { .portal-marquee-track { animation: none; flex-wrap: wrap; width: auto; } .portal-marquee-dup { display: none; } }
+@keyframes portal-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.portal-rise { animation: portal-rise .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .portal-rise { animation: none; } }
+
+/* Administration: black surfaces and navy-blue accents, including shared controls. */
+.portal-theme.hia-admin-shell[data-theme="dark"], .portal-theme.hia-admin-login[data-theme="dark"] {
+  --p-bg:#07090d; --p-sidebar:#0a0d13; --p-surface:#10151e;
+  --p-surface-2:#131c2b; --p-surface-3:#192b48; --p-input:#090d14;
+  --p-border:#26364e; --p-text:#edf2fa; --p-muted:#a5b4ca;
+  --p-accent:#8bb5f4; --p-accent-hover:#b1cff9; --p-accent-fg:#081426;
+  --color-emerald-100:#dbeafe; --color-emerald-300:#93c5fd;
+  --color-emerald-400:#7ba7e8; --color-emerald-500:#315fa6;
+  --color-emerald-600:#244b88; --color-emerald-950:#07152c;
+}
+.hia-admin-shell nav a[aria-current="page"] { background:#162b4a; color:#c6dcff; }
+
+/* Keep mobile form text readable and prevent focus zoom in iOS Safari. */
+@media (max-width: 639px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@keyframes install-sheet-in {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}

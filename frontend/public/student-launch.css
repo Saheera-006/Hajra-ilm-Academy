@@ -1,0 +1,34 @@
+#student-launch {
+  display: none;
+}
+
+html.student-launching {
+  background-color: #172d43;
+}
+
+.student-launching #student-launch {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, #223e5a 0, #172d43 65%);
+}
+
+.student-launching #student-launch img {
+  display: block;
+  width: clamp(108px, 38vw, 160px);
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgb(5 18 33 / 45%));
+  animation: student-emblem-enter 480ms cubic-bezier(.2, .65, .35, 1) both;
+}
+
+@keyframes student-emblem-enter {
+  from { opacity: .55; transform: translateY(6px) scale(.94); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .student-launching #student-launch img { animation: none; }
+}

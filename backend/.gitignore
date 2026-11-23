@@ -1,0 +1,54 @@
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Frontend dependencies and builds
+node_modules/
+dist/
+build/
+.vite/
+coverage/
+
+# Java / Maven
+target/
+*.class
+*.log
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+.project
+.classpath
+.settings/
+
+# Operating system
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Cloudflare
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Certificate temporary files
+temp/
+tmp/
+uploads/
+generated-certificates/

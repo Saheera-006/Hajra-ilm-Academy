@@ -1,0 +1,213 @@
+
+# ============================================================
+# HAJARA ILM ACADEMY - ROOT .gitignore
+# React + Vite | Spring Boot + Maven | Firebase | TiDB Cloud
+# ============================================================
+
+# ----------------------------
+# ENVIRONMENT VARIABLES
+# ----------------------------
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.sample
+!**/.env.template
+
+# ----------------------------
+# PRIVATE KEYS AND CREDENTIALS
+# ----------------------------
+*service-account*.json
+*serviceAccount*.json
+*firebase-admin*.json
+*firebaseAdmin*.json
+*credentials*.json
+*private-key*.json
+*private_key*.json
+
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.asc
+
+# Google Cloud credentials
+application_default_credentials.json
+gcloud-service-key.json
+
+# ----------------------------
+# SPRING BOOT / JAVA
+# ----------------------------
+*.class
+*.jar
+*.war
+*.ear
+
+# Maven
+**/target/
+**/.mvn/timing.properties
+**/.mvn/wrapper/maven-wrapper.jar
+
+# Maven logs
+mvn-debug.log
+mvn-error.log
+
+# Java crash logs
+hs_err_pid*
+replay_pid*
+
+# ----------------------------
+# REACT / NODE / VITE
+# ----------------------------
+**/node_modules/
+**/dist/
+**/build/
+**/.vite/
+**/.cache/
+**/.parcel-cache/
+**/.next/
+**/.nuxt/
+
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Keep package lockfiles tracked
+!package-lock.json
+!pnpm-lock.yaml
+!yarn.lock
+
+# ----------------------------
+# FIREBASE
+# ----------------------------
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
+ui-debug.log
+
+# Firebase emulator files
+firebase-export/
+firebase-emulator-data/
+
+# ----------------------------
+# DATABASE
+# ----------------------------
+*.sql.gz
+*.sql.zip
+*.dump
+*.bak
+*.backup
+*.sqlite
+*.sqlite3
+*.db
+
+# Do not ignore Flyway migrations.
+# backend/src/main/resources/db/migration/*.sql
+# MUST remain tracked.
+
+# ----------------------------
+# LOGS
+# ----------------------------
+*.log
+logs/
+**/logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ----------------------------
+# IDE / EDITORS
+# ----------------------------
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+.settings/
+.project
+.classpath
+.factorypath
+.springBeans
+.sts4-cache/
+
+# ----------------------------
+# OPERATING SYSTEM
+# ----------------------------
+.DS_Store
+Thumbs.db
+Thumbs.db:encryptable
+Desktop.ini
+$RECYCLE.BIN/
+*.swp
+*.swo
+*~
+
+# ----------------------------
+# TEST / COVERAGE
+# ----------------------------
+coverage/
+**/coverage/
+.nyc_output/
+*.lcov
+test-results/
+playwright-report/
+
+# ----------------------------
+# TEMPORARY FILES
+# ----------------------------
+*.tmp
+*.temp
+*.orig
+*.rej
+*.swn
+*.swm
+
+tmp/
+temp/
+.cache/
+
+# ----------------------------
+# LOCAL ARCHIVES
+# ----------------------------
+*.zip
+*.7z
+*.rar
+*.tar
+*.tar.gz
+
+# ----------------------------
+# GENERATED CERTIFICATES / UPLOADS
+# ----------------------------
+generated-certificates/
+backend/generated-certificates/
+backend/uploads/
+backend/storage/
+uploads/
+
+# ----------------------------
+# KEEP IMPORTANT PROJECT FILES
+# ----------------------------
+!pom.xml
+!package.json
+!package-lock.json
+!firebase.json
+!.firebaserc
+!vite.config.js
+!vite.config.ts
+!README.md
+!mvnw
+!mvnw.cmd
