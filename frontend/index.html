@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <link rel="manifest" href="/student.webmanifest" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hajara Ilm Academy | أكاديمية هاجرة للعلم</title>
+    <meta name="description" content="Learn Quran reading, Tajweed and essential Islamic knowledge through live online Tamil classes at Hajara Ilm Academy." />
+    <meta name="theme-color" content="#0a2540" />
+    <link rel="icon" type="image/webp" href="/logo-480.webp" />
+    <link rel="apple-touch-icon" href="/student-touch-icon.png" />
+    <link rel="stylesheet" href="/student-launch.css" />
+    <script>
+      if ((navigator.standalone === true || matchMedia('(display-mode: standalone)').matches)
+        && /^\/(?:student(?:\/|$)|login\/?$)/.test(location.pathname)) {
+        document.documentElement.classList.add('student-launching');
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Newsreader:wght@500;600&family=Noto+Sans+Tamil:wght@400;600&family=Noto+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <div id="student-launch" role="status" aria-label="Opening Hajara Ilm Academy">
+      <img src="/logo-480.webp" width="160" height="160" alt="" />
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

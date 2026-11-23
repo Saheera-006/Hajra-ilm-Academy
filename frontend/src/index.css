@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+@theme {
+  --color-sky-50: #f0f8fe;
+  --color-sky-100: #dff0fb;
+  --color-sky-300: #8ecff5;
+  --color-sky-500: #4fb0e6;
+  --color-navy-700: #14385f;
+  --color-navy-900: #0a2540;
+  --color-gold-300: #fad994;
+  --color-gold-500: #bb8a45;
+  --color-background: #fbfaf7;
+  --color-foreground: #172d43;
+  --color-muted: #f3f0e8;
+  --color-muted-foreground: #687583;
+  --color-border: #e7e0d4;
+  --color-ring: #a1834e;
+  --color-primary: #e7cc91;
+  --color-primary-foreground: #172d43;
+  --color-secondary: #ffffff;
+  --color-secondary-foreground: #172d43;
+  --color-destructive: #b42318;
+  --color-destructive-foreground: #ffffff;
+  --font-sans: "Noto Sans", "Noto Sans Tamil", system-ui, sans-serif;
+  --font-heading: "Newsreader", Georgia, serif;
+  --font-arabic: "Amiri", "Traditional Arabic", serif;
+  --font-tamil: "Noto Sans Tamil", "Noto Sans", sans-serif;
+}
+
+@layer base {
+  html { scroll-behavior: smooth; }
+  body { @apply bg-background text-foreground font-sans antialiased; }
+  h1, h2, h3, h4 { font-family: var(--font-heading); }
+  :focus-visible { outline: 2px solid var(--color-ring); outline-offset: 3px; }
+  [lang="ar"] { font-family: var(--font-arabic); line-height: 1.9; }
+  [lang="ta"] { font-family: var(--font-tamil); }
+  ::selection { background: #e7cc91; color: #172d43; }
+}
+
+.hero-ornament {
+  opacity: .16;
+  background-image: radial-gradient(circle at 1px 1px, rgba(231,204,145,.45) 1px, transparent 0);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(110deg, black, transparent 65%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+
+/* Used by TeacherProfileCard (motion-safe:animate-fade-up). */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.motion-safe\:animate-fade-up { animation: fade-up .6s ease both; }
+@media (prefers-reduced-motion: reduce) { .motion-safe\:animate-fade-up { animation: none; } }
+/* Scoped administration theme: maintain legibility in all legacy management forms. */
+.hia-admin-shell main section, .hia-admin-shell main form { color: #e2e8f0; }
+.hia-admin-shell main input, .hia-admin-shell main select, .hia-admin-shell main textarea { color: #e2e8f0; background-color: #ffffff; }
+.hia-admin-shell main input::placeholder, .hia-admin-shell main textarea::placeholder { color: #64748b; }
+.hia-admin-shell main .bg-white, .hia-admin-shell main .bg-slate-50 { color: #172d43; }
+.hia-admin-shell main .bg-white label, .hia-admin-shell main .bg-slate-50 label { color: #172d43; }
+
+/* Consistent dark admin palette; overrides legacy white panels without affecting the public site. */
+.hia-admin-shell main .bg-white, .hia-admin-shell main .bg-slate-50, .hia-admin-shell main .bg-amber-50\/40 { background-color:#10151e !important; color:#f1f5f9 !important; border-color:#26364e !important; }
+.hia-admin-shell main .text-slate-900, .hia-admin-shell main .text-\[\#172d43\] { color:#f1f5f9 !important; }
+.hia-admin-shell main .text-slate-500, .hia-admin-shell main .text-slate-600 { color:#a5b4ca !important; }
+.hia-admin-shell main input, .hia-admin-shell main select, .hia-admin-shell main textarea { background-color:#090d14 !important; color:#f1f5f9 !important; border:1px solid #293a55 !important; }
+.hia-admin-shell main input[type=checkbox] { accent-color:#315fa6; }
+.hia-admin-shell main label { color:#e2e8f0 !important; }
+.hia-admin-shell main table thead { background:#111e32 !important; color:#e2e8f0 !important; }
+.hia-admin-shell main table tr { border-color:#26364e !important; }
+
+/* Admin redesign — deliberately scoped so the existing public website is untouched. */
+.hia-admin-shell { background: #07090d; color: #e7edf7; }
+.hia-admin-shell .hia-admin-main { color: #e7edf7; }
+.hia-admin-shell .hia-admin-main > section { border: 1px solid #25334a; border-radius: 22px; background: #10151e; padding: clamp(16px, 2.5vw, 28px); box-shadow: 0 18px 48px rgba(0,0,0,.12); }
+.hia-admin-shell .hia-admin-main > section:has(.hia-management) { border: 0; background: transparent; padding: 0; box-shadow: none; }
+.hia-admin-shell .hia-admin-main > section h2, .hia-admin-shell .hia-admin-main > section h3 { color: #f1f5f9; }
+.hia-admin-shell .hia-admin-main p.text-slate-600, .hia-admin-shell .hia-admin-main p.text-slate-500 { color: #a5b4ca !important; }
+.hia-admin-shell .hia-admin-main input:not([type=checkbox]), .hia-admin-shell .hia-admin-main select, .hia-admin-shell .hia-admin-main textarea { color: #f1f5f9 !important; background: #090d14 !important; border: 1px solid #293a55 !important; border-radius: 12px; }
+.hia-admin-shell .hia-admin-main input::placeholder, .hia-admin-shell .hia-admin-main textarea::placeholder { color: #8c9bb2 !important; }
+.hia-admin-shell .hia-admin-main input:focus, .hia-admin-shell .hia-admin-main select:focus, .hia-admin-shell .hia-admin-main textarea:focus { outline: 2px solid #6694db; outline-offset: 1px; }
+.hia-admin-shell .hia-admin-main table { border-collapse: separate; border-spacing: 0; min-width: 600px; width: 100%; }
+.hia-admin-shell .hia-admin-main thead, .hia-admin-shell .hia-admin-main thead tr { background: #12213a !important; }
+.hia-admin-shell .hia-admin-main th { color: #adc9f5; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 700; }
+.hia-admin-shell .hia-admin-main td { color: #e2e8f0; }
+.hia-admin-shell .hia-admin-main tbody tr:hover { background: rgba(59,130,246,.08); }
+.hia-admin-shell .hia-admin-main .bg-white, .hia-admin-shell .hia-admin-main .bg-slate-50, .hia-admin-shell .hia-admin-main .bg-\[\#faf8f4\] { background: #10151e !important; border-color: #26364e !important; color: #e7edf7 !important; }
+.hia-admin-shell .hia-admin-main .text-\[\#172d43\], .hia-admin-shell .hia-admin-main .text-slate-700 { color: #e7edf7 !important; }
+.hia-admin-shell .hia-admin-main button { transition: background-color .18s, border-color .18s, transform .18s; }
+.hia-admin-shell .hia-admin-main button:focus-visible, .hia-admin-shell .hia-admin-nav button:focus-visible { outline: 2px solid #93b9f2; outline-offset: 2px; }
+.hia-admin-shell .hia-admin-main select option { background: #10151e; color: white; }
+@media (max-width: 640px) { .hia-admin-shell .hia-admin-main > section { padding: 16px; } }

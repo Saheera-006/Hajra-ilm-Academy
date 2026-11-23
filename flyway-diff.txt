@@ -1,0 +1,300 @@
+diff --git a/backend/src/main/resources/db/migration/V11__batches_ids_attendance.sql b/backend/src/main/resources/db/migration/V11__batches_ids_attendance.sql
+index b832526..a7742a7 100644
+--- a/backend/src/main/resources/db/migration/V11__batches_ids_attendance.sql
++++ b/backend/src/main/resources/db/migration/V11__batches_ids_attendance.sql
+@@ -1,60 +1,154 @@
+--- Phase 2: batch model, new student ID format, one-open-batch guard, attendance audit trail.
+--- Safe/idempotent-by-design for existing data: no rows are deleted; old student numbers are preserved in legacy_student_number.
+ 
+--- 1. Optional dates (2099 placeholders written by the old code become NULL = "not set")
++-- V11: Batch management, student IDs, one-open-batch guard,
++-- and attendance audit trail.
++
++-- 1. Optional batch dates
++ALTER TABLE academy_batches
++  MODIFY COLUMN enrollment_closes_at DATETIME(6) NULL;
++
++ALTER TABLE academy_batches
++  MODIFY COLUMN classes_start_at DATETIME(6) NULL;
++
++ALTER TABLE academy_batches
++  MODIFY COLUMN classes_end_at DATETIME(6) NULL;
++
++ALTER TABLE academy_batches
++  ADD COLUMN batch_number INT NULL;
++
++ALTER TABLE academy_batches
++  ADD COLUMN whatsapp_link VARCHAR(500) NULL;
++
+ ALTER TABLE academy_batches
+-  MODIFY enrollment_closes_at DATETIME(6) NULL,
+-  MODIFY classes_start_at DATETIME(6) NULL,
+-  MODIFY classes_end_at DATETIME(6) NULL,
+-  ADD COLUMN batch_number INT NULL,
+-  ADD COLUMN whatsapp_link VARCHAR(500) NULL,
+   ADD COLUMN next_roll INT NOT NULL DEFAULT 1;
+ 
+-UPDATE academy_batches SET enrollment_closes_at = NULL WHERE YEAR(enrollment_closes_at) = 2099;
+-UPDATE academy_batches SET classes_start_at = NULL WHERE YEAR(classes_start_at) = 2099;
+-UPDATE academy_batches SET classes_end_at = NULL WHERE YEAR(classes_end_at) = 2099;
++UPDATE academy_batches
++SET enrollment_closes_at = NULL
++WHERE YEAR(enrollment_closes_at) = 2099;
+ 
+--- 2. Sequential batch numbers (oldest = 1)
+-UPDATE academy_batches b JOIN (
+-  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS rn FROM academy_batches
+-) x ON x.id = b.id SET b.batch_number = x.rn;
+-ALTER TABLE academy_batches MODIFY batch_number INT NOT NULL, ADD UNIQUE KEY uq_batch_number (batch_number);
++UPDATE academy_batches
++SET classes_start_at = NULL
++WHERE YEAR(classes_start_at) = 2099;
++
++UPDATE academy_batches
++SET classes_end_at = NULL
++WHERE YEAR(classes_end_at) = 2099;
++
++-- 2. Sequential batch numbers
++UPDATE academy_batches b
++JOIN (
++    SELECT
++        id,
++        ROW_NUMBER() OVER (
++            ORDER BY created_at, id
++        ) AS rn
++    FROM academy_batches
++) x ON x.id = b.id
++SET b.batch_number = x.rn;
++
++ALTER TABLE academy_batches
++  MODIFY COLUMN batch_number INT NOT NULL;
++
++ALTER TABLE academy_batches
++  ADD UNIQUE KEY uq_batch_number (batch_number);
++
++-- 3. Ensure at most one OPEN batch
++-- Preserve the newest open batch and close older ones.
++
++UPDATE academy_batches
++SET status = 'CLOSED'
++WHERE status = 'OPEN'
++  AND id <> (
++      SELECT mx
++      FROM (
++          SELECT MAX(id) AS mx
++          FROM academy_batches
++          WHERE status = 'OPEN'
++      ) t
++  );
++
++-- TiDB: use VIRTUAL instead of STORED.
++-- Verify support for indexing this generated column.
++
++ALTER TABLE academy_batches
++  ADD COLUMN open_flag TINYINT
++  GENERATED ALWAYS AS (
++      CASE
++          WHEN status = 'OPEN' THEN 1
++          ELSE NULL
++      END
++  ) VIRTUAL;
+ 
+--- 3. At most ONE open batch, enforced by the database itself.
+---    If legacy data somehow has several, keep only the newest open.
+-UPDATE academy_batches SET status = 'CLOSED'
+- WHERE status = 'OPEN' AND id <> (SELECT mx FROM (SELECT MAX(id) AS mx FROM academy_batches WHERE status = 'OPEN') t);
+ ALTER TABLE academy_batches
+-  ADD COLUMN open_flag TINYINT GENERATED ALWAYS AS (CASE WHEN status = 'OPEN' THEN 1 ELSE NULL END) STORED,
+   ADD UNIQUE KEY uq_single_open_batch (open_flag);
+ 
+--- 4. Student IDs: HIA + YYYY + BB + RRR. Keep the old value, then regenerate for students that already had one.
+-ALTER TABLE portal_users ADD COLUMN legacy_student_number VARCHAR(30) NULL;
+-UPDATE portal_users SET legacy_student_number = student_number WHERE student_number IS NOT NULL;
++-- 4. Preserve legacy student IDs
++ALTER TABLE portal_users
++  ADD COLUMN legacy_student_number VARCHAR(30) NULL;
++
++UPDATE portal_users
++SET legacy_student_number = student_number
++WHERE student_number IS NOT NULL;
+ 
++-- Generate HIA + YYYY + BB + RRR
+ UPDATE portal_users u
+ JOIN (
+-  SELECT e.user_id, e.batch_id, YEAR(e.created_at) AS yr,
+-         ROW_NUMBER() OVER (PARTITION BY e.batch_id ORDER BY e.id) AS roll
+-  FROM portal_enrollments e
+-  JOIN (SELECT user_id, MAX(id) AS mid FROM portal_enrollments WHERE batch_id IS NOT NULL GROUP BY user_id) m ON m.mid = e.id
+-  JOIN portal_users pu ON pu.id = e.user_id AND pu.student_number IS NOT NULL
++    SELECT
++        e.user_id,
++        e.batch_id,
++        YEAR(e.created_at) AS yr,
++        ROW_NUMBER() OVER (
++            PARTITION BY e.batch_id
++            ORDER BY e.id
++        ) AS roll
++    FROM portal_enrollments e
++    JOIN (
++        SELECT
++            user_id,
++            MAX(id) AS mid
++        FROM portal_enrollments
++        WHERE batch_id IS NOT NULL
++        GROUP BY user_id
++    ) m ON m.mid = e.id
++    JOIN portal_users pu
++      ON pu.id = e.user_id
++     AND pu.student_number IS NOT NULL
+ ) x ON x.user_id = u.id
+-JOIN academy_batches b ON b.id = x.batch_id
+-SET u.student_number = CONCAT('HIA', x.yr, LPAD(b.batch_number, 2, '0'), LPAD(x.roll, 3, '0'))
++JOIN academy_batches b
++  ON b.id = x.batch_id
++SET u.student_number = CONCAT(
++    'HIA',
++    x.yr,
++    LPAD(b.batch_number, 2, '0'),
++    LPAD(x.roll, 3, '0')
++)
+ WHERE u.role = 'STUDENT';
+ 
+-UPDATE academy_batches b SET next_roll = 1 + (SELECT COUNT(*) FROM portal_enrollments e WHERE e.batch_id = b.id);
++-- 5. Initialize batch roll counters
++UPDATE academy_batches b
++SET next_roll = 1 + (
++    SELECT COUNT(*)
++    FROM portal_enrollments e
++    WHERE e.batch_id = b.id
++);
++
++-- 6. Attendance audit trail
++ALTER TABLE portal_attendance
++  ADD COLUMN marked_by BIGINT NULL;
++
++ALTER TABLE portal_attendance
++  ADD COLUMN updated_at TIMESTAMP(6) NULL;
+ 
+--- 5. Attendance audit trail
+-ALTER TABLE portal_attendance ADD COLUMN marked_by BIGINT NULL, ADD COLUMN updated_at TIMESTAMP(6) NULL;
+ CREATE TABLE portal_attendance_audit (
+-  id BIGINT PRIMARY KEY AUTO_INCREMENT,
+-  enrollment_id BIGINT NOT NULL,
+-  class_date DATE NOT NULL,
+-  old_status VARCHAR(20) NULL,
+-  new_status VARCHAR(20) NOT NULL,
+-  changed_by BIGINT NOT NULL,
+-  changed_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+-  KEY idx_att_audit_enrollment (enrollment_id, class_date)
++    id BIGINT PRIMARY KEY AUTO_INCREMENT,
++    enrollment_id BIGINT NOT NULL,
++    class_date DATE NOT NULL,
++    old_status VARCHAR(20) NULL,
++    new_status VARCHAR(20) NOT NULL,
++    changed_by BIGINT NOT NULL,
++    changed_at TIMESTAMP(6) NOT NULL
++        DEFAULT CURRENT_TIMESTAMP(6),
++    KEY idx_att_audit_enrollment (
++        enrollment_id,
++        class_date
++    )
+ );
+diff --git a/backend/src/main/resources/db/migration/V18__content_audiences_and_programme_title.sql b/backend/src/main/resources/db/migration/V18__content_audiences_and_programme_title.sql
+index 36fb43c..a442261 100644
+--- a/backend/src/main/resources/db/migration/V18__content_audiences_and_programme_title.sql
++++ b/backend/src/main/resources/db/migration/V18__content_audiences_and_programme_title.sql
+@@ -1,11 +1,32 @@
++
++-- V18: Announcement audiences and official programme title
++-- TiDB-compatible migration
++
++-- 1. Add batch ID to portal announcements
++ALTER TABLE portal_announcements
++    ADD COLUMN batch_id BIGINT NULL;
++
++-- 2. Add foreign key separately
+ ALTER TABLE portal_announcements
+-    ADD COLUMN batch_id BIGINT NULL,
+-    ADD CONSTRAINT fk_portal_announcement_batch FOREIGN KEY (batch_id) REFERENCES academy_batches(id);
++    ADD CONSTRAINT fk_portal_announcement_batch
++    FOREIGN KEY (batch_id)
++    REFERENCES academy_batches(id);
++
++-- 3. Add batch ID to academy notifications
++ALTER TABLE academy_notifications
++    ADD COLUMN batch_id BIGINT NULL;
+ 
++-- 4. Add foreign key separately
+ ALTER TABLE academy_notifications
+-    ADD COLUMN batch_id BIGINT NULL,
+-    ADD CONSTRAINT fk_academy_notification_batch FOREIGN KEY (batch_id) REFERENCES academy_batches(id);
++    ADD CONSTRAINT fk_academy_notification_batch
++    FOREIGN KEY (batch_id)
++    REFERENCES academy_batches(id);
+ 
++-- 5. Update the official programme title
+ UPDATE portal_courses
+ SET title = 'Islamic Learning Programme · இஸ்லாமியக் கல்விப் பாடத்திட்டம்'
+-WHERE title = 'Quran Learning' OR id IN (SELECT course_id FROM academy_batches);
++WHERE title = 'Quran Learning'
++   OR id IN (
++       SELECT course_id
++       FROM academy_batches
++   );
+diff --git a/backend/src/main/resources/db/migration/V9__cohort_enrollment.sql b/backend/src/main/resources/db/migration/V9__cohort_enrollment.sql
+index 14a06a1..af32ee8 100644
+--- a/backend/src/main/resources/db/migration/V9__cohort_enrollment.sql
++++ b/backend/src/main/resources/db/migration/V9__cohort_enrollment.sql
+@@ -1,15 +1,39 @@
++
++-- V9: Cohort Enrollment Migration
++-- Hajara Ilm Academy
++
++-- 1. Create academy batches table
+ CREATE TABLE academy_batches (
+- id BIGINT PRIMARY KEY AUTO_INCREMENT,
+- course_id BIGINT NOT NULL,
+- name VARCHAR(150) NOT NULL,
+- enrollment_opens_at DATETIME(6) NOT NULL,
+- enrollment_closes_at DATETIME(6) NOT NULL,
+- classes_start_at DATETIME(6) NOT NULL,
+- classes_end_at DATETIME(6) NOT NULL,
+- status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
+- created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+- CONSTRAINT fk_batch_course FOREIGN KEY(course_id) REFERENCES portal_courses(id)
++    id BIGINT PRIMARY KEY AUTO_INCREMENT,
++    course_id BIGINT NOT NULL,
++    name VARCHAR(150) NOT NULL,
++    enrollment_opens_at DATETIME(6) NOT NULL,
++    enrollment_closes_at DATETIME(6) NOT NULL,
++    classes_start_at DATETIME(6) NOT NULL,
++    classes_end_at DATETIME(6) NOT NULL,
++    status VARCHAR(20) NOT NULL DEFAULT 'DRAFT',
++    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
++
++    CONSTRAINT fk_batch_course
++        FOREIGN KEY (course_id)
++        REFERENCES portal_courses(id)
+ );
+-ALTER TABLE portal_enrollments ADD COLUMN batch_id BIGINT NULL,
+- ADD CONSTRAINT fk_enrollment_batch FOREIGN KEY(batch_id) REFERENCES academy_batches(id);
+-ALTER TABLE portal_users ADD COLUMN student_number VARCHAR(30) NULL UNIQUE;
++
++-- 2. Add batch ID to enrollments
++ALTER TABLE portal_enrollments
++    ADD COLUMN batch_id BIGINT NULL;
++
++-- 3. Add batch foreign key separately
++ALTER TABLE portal_enrollments
++    ADD CONSTRAINT fk_enrollment_batch
++    FOREIGN KEY (batch_id)
++    REFERENCES academy_batches(id);
++
++-- 4. Add student number without UNIQUE
++ALTER TABLE portal_users
++    ADD COLUMN student_number VARCHAR(30) NULL;
++
++-- 5. Create UNIQUE constraint separately
++ALTER TABLE portal_users
++    ADD CONSTRAINT uq_portal_users_student_number
++    UNIQUE (student_number);

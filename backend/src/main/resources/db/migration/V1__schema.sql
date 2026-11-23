@@ -1,0 +1,213 @@
+-- Hajara Ilm Academy: initial schema (MySQL 8). Amounts in paise.
+CREATE TABLE role (
+  id TINYINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(30) NOT NULL UNIQUE
+) ENGINE=InnoDB;
+
+CREATE TABLE admin (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(190) NOT NULL UNIQUE,
+  password_hash VARCHAR(100) NOT NULL,
+  role_id TINYINT UNSIGNED NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  failed_attempts INT NOT NULL DEFAULT 0,
+  locked_until DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (role_id) REFERENCES role(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE course (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(200) NOT NULL,
+  title_ta VARCHAR(200) NULL,
+  description TEXT NULL,
+  description_ta TEXT NULL,
+  fee_paise INT UNSIGNED NOT NULL,
+  duration_months TINYINT UNSIGNED NOT NULL,
+  class_days VARCHAR(60) NOT NULL,
+  start_time TIME NOT NULL,
+  end_time TIME NOT NULL,
+  mode VARCHAR(60) NOT NULL,
+  platform VARCHAR(60) NULL,
+  language VARCHAR(60) NOT NULL,
+  certificate_note VARCHAR(300) NULL,
+  certificate_note_ta VARCHAR(300) NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE batch (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  course_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  capacity SMALLINT UNSIGNED NOT NULL,
+  start_date DATE NULL,
+  status ENUM('OPEN','FULL','CLOSED') NOT NULL DEFAULT 'OPEN',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (course_id) REFERENCES course(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE learning_area (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  course_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(150) NOT NULL,
+  name_ta VARCHAR(150) NULL,
+  description TEXT NULL,
+  description_ta TEXT NULL,
+  minutes_per_class SMALLINT UNSIGNED NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  published BOOLEAN NOT NULL DEFAULT TRUE,
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  INDEX idx_area_order (course_id, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE curriculum_topic (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  learning_area_id BIGINT UNSIGNED NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  title_ta VARCHAR(200) NULL,
+  title_ar VARCHAR(200) NULL,
+  description TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (learning_area_id) REFERENCES learning_area(id) ON DELETE CASCADE,
+  INDEX idx_topic_order (learning_area_id, sort_order)
+) ENGINE=InnoDB;
+
+CREATE TABLE weekly_schedule (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  course_id BIGINT UNSIGNED NOT NULL,
+  day_of_week TINYINT UNSIGNED NOT NULL COMMENT '1=Mon..7=Sun',
+  first_area_id BIGINT UNSIGNED NOT NULL,
+  second_area_id BIGINT UNSIGNED NULL,
+  published BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE (course_id, day_of_week),
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  FOREIGN KEY (first_area_id) REFERENCES learning_area(id),
+  FOREIGN KEY (second_area_id) REFERENCES learning_area(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE student (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  full_name VARCHAR(150) NOT NULL,
+  date_of_birth DATE NOT NULL,
+  phone VARCHAR(20) NOT NULL,
+  email VARCHAR(190) NULL,
+  guardian_name VARCHAR(150) NULL,
+  guardian_phone VARCHAR(20) NULL,
+  quran_experience VARCHAR(500) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_student_phone (phone)
+) ENGINE=InnoDB;
+
+CREATE TABLE registration (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  student_id BIGINT UNSIGNED NOT NULL,
+  course_id BIGINT UNSIGNED NOT NULL,
+  batch_id BIGINT UNSIGNED NOT NULL,
+  reference_code VARCHAR(20) NOT NULL UNIQUE,
+  status ENUM('PENDING','CONFIRMED','CANCELLED','NEEDS_REVIEW') NOT NULL DEFAULT 'PENDING',
+  hold_expires_at DATETIME NULL,
+  consent_privacy_at DATETIME NOT NULL,
+  consent_terms_at DATETIME NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (student_id) REFERENCES student(id),
+  FOREIGN KEY (course_id) REFERENCES course(id),
+  FOREIGN KEY (batch_id) REFERENCES batch(id),
+  INDEX idx_reg_status (batch_id, status, hold_expires_at)
+) ENGINE=InnoDB;
+
+CREATE TABLE payment (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  registration_id BIGINT UNSIGNED NOT NULL,
+  gateway_order_id VARCHAR(64) NOT NULL UNIQUE,
+  gateway_payment_id VARCHAR(64) NULL UNIQUE,
+  amount_paise INT UNSIGNED NOT NULL,
+  currency CHAR(3) NOT NULL DEFAULT 'INR',
+  status ENUM('CREATED','PENDING','SUCCESS','FAILED','CANCELLED') NOT NULL DEFAULT 'CREATED',
+  verified_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (registration_id) REFERENCES registration(id),
+  INDEX idx_payment_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE payment_event (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  payment_id BIGINT UNSIGNED NULL,
+  event_id VARCHAR(100) NOT NULL UNIQUE,
+  type VARCHAR(60) NOT NULL,
+  payload_hash CHAR(64) NOT NULL,
+  received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (payment_id) REFERENCES payment(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE certificate (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  registration_id BIGINT UNSIGNED NOT NULL UNIQUE,
+  certificate_ref VARCHAR(30) NOT NULL UNIQUE,
+  approved_by BIGINT UNSIGNED NOT NULL,
+  approved_at DATETIME NOT NULL,
+  issued_at DATETIME NULL,
+  FOREIGN KEY (registration_id) REFERENCES registration(id),
+  FOREIGN KEY (approved_by) REFERENCES admin(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE faq (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  -- English is the main language; Tamil is optional supporting text.
+  question VARCHAR(300) NOT NULL,
+  question_ta VARCHAR(300) NULL,
+  answer TEXT NOT NULL,
+  answer_ta TEXT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE TABLE announcement (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  title VARCHAR(200) NOT NULL,
+  title_ta VARCHAR(200) NULL,
+  body TEXT NOT NULL,
+  body_ta TEXT NULL,
+  publish_from DATETIME NULL,
+  publish_to DATETIME NULL,
+  published BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+-- Editable site text (home, about, teacher, contact, legal, SEO, footer).
+-- Values are sanitized server-side before saving. Empty value = hidden on site.
+CREATE TABLE site_content (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  content_key VARCHAR(100) NOT NULL UNIQUE,
+  label VARCHAR(150) NOT NULL,
+  content_group VARCHAR(40) NOT NULL,
+  content_value_en MEDIUMTEXT NULL,
+  content_value_ta MEDIUMTEXT NULL,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_content_group (content_group)
+) ENGINE=InnoDB;
+
+CREATE TABLE audit_log (
+  id BIGINT UNSIGNED PRIMARY KEY AUTO_INCREMENT,
+  admin_id BIGINT UNSIGNED NULL,
+  action VARCHAR(60) NOT NULL,
+  entity VARCHAR(60) NOT NULL,
+  entity_id VARCHAR(40) NULL,
+  details TEXT NULL,
+  ip VARCHAR(45) NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (admin_id) REFERENCES admin(id),
+  INDEX idx_audit_created (created_at)
+) ENGINE=InnoDB;

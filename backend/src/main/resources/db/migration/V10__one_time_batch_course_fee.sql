@@ -1,0 +1,1 @@
+ALTER TABLE academy_batches ADD COLUMN course_fee DECIMAL(12,2) NOT NULL DEFAULT 0.00;
