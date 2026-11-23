@@ -161,21 +161,46 @@ export function Announcements() {
 }
 
 async function openCertificatePdf(id, download) {
-  if (!download) {
-    window.open(`${API}/api/portal/my-certificates/${encodeURIComponent(id)}/pdf`, '_blank', 'noopener,noreferrer');
-    return;
+  // Open a preview tab synchronously so popup blockers do not block it.
+  const previewTab = download ? null : window.open('', '_blank');
+  if (!download && !previewTab) {
+    throw new Error('Please allow pop-ups to view the certificate.');
   }
-  const response = await fetch(`${API}/api/portal/my-certificates/${encodeURIComponent(id)}/pdf`, { credentials: 'include' });
-  if (!response.ok) throw new Error(response.status === 401 ? 'Please sign in again to access your certificate.' : 'Could not open the certificate. Please try again.');
-  const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = `Hajara-Ilm-Academy-Certificate-${id}.pdf`;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
+
+  try {
+    const response = await fetch(
+      `${API}/api/portal/my-certificates/${encodeURIComponent(id)}/pdf`,
+      { credentials: 'include', headers: { Accept: 'application/pdf' } }
+    );
+    if (!response.ok) {
+      throw new Error(
+        response.status === 401 || response.status === 403
+          ? 'Please sign in again to access your certificate.'
+          : 'Could not open the certificate. Please try again.'
+      );
+    }
+
+    const pdfBlob = await response.blob();
+    const url = URL.createObjectURL(new Blob([pdfBlob], { type: 'application/pdf' }));
+
+    if (download) {
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `Hajara-Ilm-Academy-Certificate-${id}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } else {
+      previewTab.location.replace(url);
+      // Keep the blob URL available to the browser's PDF viewer.
+      // Revoke it when the student portal page is unloaded.
+      window.addEventListener('pagehide', () => URL.revokeObjectURL(url), { once: true });
+    }
+  } catch (error) {
+    if (previewTab && !previewTab.closed) previewTab.close();
+    throw error;
+  }
 }
 
 export function Certificates() {
