@@ -18,19 +18,19 @@ import tools.jackson.databind.*;
 
 @Service
 public class RazorpayService {
- final JdbcTemplate db; final BatchService batches; final DemoEnrollmentService enrollment;
- final ObjectMapper json = new ObjectMapper();
+ private final JdbcTemplate db; final BatchService batches; final DemoEnrollmentService enrollment;
+ private final ObjectMapper json = new ObjectMapper();
  final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
  @Value("${RAZORPAY_KEY_ID:}") String key;
- @Value("${RAZORPAY_KEY_SECRET:}") String secret;
- @Value("${RAZORPAY_WEBHOOK_SECRET:}") String webhookSecret;
+ @Value("${RAZORPAY_KEY_SECRET:}") private String secret;
+ @Value("${RAZORPAY_WEBHOOK_SECRET:}") private String webhookSecret;
  RazorpayService(JdbcTemplate db, BatchService batches, DemoEnrollmentService enrollment){this.db=db;this.batches=batches;this.enrollment=enrollment;}
  static ResponseStatusException bad(String s){return new ResponseStatusException(HttpStatus.BAD_REQUEST,s);}
  static boolean signature(String secret, byte[] body, String supplied){
   if(secret==null||secret.isBlank()||supplied==null)return false;
   try {Mac mac=Mac.getInstance("HmacSHA256");mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8),"HmacSHA256"));return java.security.MessageDigest.isEqual(HexFormat.of().formatHex(mac.doFinal(body)).getBytes(StandardCharsets.US_ASCII),supplied.getBytes(StandardCharsets.US_ASCII));}catch(Exception e){return false;}
  }
- JsonNode api(String path, Object body){
+ public JsonNode api(String path, Object body){
   if(key.isBlank()||secret.isBlank())throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Payment gateway not configured.");
   try {var b=HttpRequest.newBuilder(URI.create("https://api.razorpay.com/v1/"+path)).timeout(Duration.ofSeconds(20)).header("Authorization","Basic "+Base64.getEncoder().encodeToString((key+":"+secret).getBytes(StandardCharsets.UTF_8))).header("Content-Type","application/json");
    var r=http.send(body==null?b.GET().build():b.POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(body))).build(),HttpResponse.BodyHandlers.ofString());
@@ -66,4 +66,11 @@ public class RazorpayService {
   return result(db.queryForMap("SELECT * FROM razorpay_orders WHERE order_id=?",order));
  }
  Map<String,Object> result(Map<String,Object> r){return Map.of("success",true,"studentId",r.get("student_id"),"message","Payment verified. Student account created. Receipt email will be sent.");}
+ public JdbcTemplate getDb(){return db;}
+ public ObjectMapper getJson(){return json;}
+ public boolean verifyCheckoutSignature(String orderId,String paymentId,String supplied){
+  if(orderId==null||paymentId==null||!orderId.matches("order_[A-Za-z0-9]+")||!paymentId.matches("pay_[A-Za-z0-9]+"))return false;
+  return signature(secret,(orderId+"|"+paymentId).getBytes(StandardCharsets.UTF_8),supplied);
+ }
+ public boolean verifyWebhookSignature(byte[] body,String supplied){return signature(webhookSecret,body,supplied);}
 }

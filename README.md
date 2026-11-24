@@ -107,3 +107,6 @@ dashboard notification prompt. Tapping **Enable notifications** there requests
 browser permission and registers the device with the signed-in account.
 On iPhone (iOS 16.4+), students must first add the portal to their Home Screen
 and open it from the icon.
+
+### Razorpay proxy correction
+Controller calls service methods rather than reading fields on the transactional Spring proxy. Existing database and environment variables are unchanged. Run `mvn clean test` in backend (includes RazorpayProxyTest). After deploying, sign in as admin, open Payments and recover existing captured test payments using their matching Razorpay payment IDs. Do not pay again or manually mark rows paid. Confirm student account, receipt and webhook processing before enabling live payments.
