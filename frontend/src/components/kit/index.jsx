@@ -85,13 +85,15 @@ export function EmptyState({ icon: Icon = Inbox, title, text, action }) {
 
 export function Modal({ open, onClose, title, children, footer, wide = false }) {
   const ref = useRef(null);
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => e.key === 'Escape' && onClose();
+    const onKey = (e) => e.key === 'Escape' && closeRef.current();
     document.addEventListener('keydown', onKey);
     ref.current?.focus();
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">

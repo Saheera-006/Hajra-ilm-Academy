@@ -30,8 +30,8 @@ public class BatchService {
   return rows.get(0);
  }
  public Map<String,Object> requireManualBatch(Long batchId){
-  var rows=jdbc.queryForList("SELECT * FROM academy_batches WHERE id=? AND status IN ('OPEN','CLOSED')",batchId);
-  if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Select an open or closed batch. Completed/draft batches cannot accept manual enrollment.");
+  var rows=jdbc.queryForList("SELECT * FROM academy_batches WHERE id=? AND status IN ('OPEN','CLOSED','DRAFT')",batchId);
+  if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Select a non-completed batch.");
   return rows.get(0);
  }
  /** Enrollment expiry derived from the batch end date; null when no end date is set (access lasts until the batch is completed). */

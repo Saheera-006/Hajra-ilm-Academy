@@ -123,3 +123,9 @@ Verified Razorpay enrollments and paid offline enrollments send a branded welcom
 Fresh database: existing Hikari `createDatabaseIfNotExist: true`, Flyway V1–V20 and AdminBootstrap are retained. TiDB must grant database creation permission; otherwise manually create the empty database before starting the backend. Admin bootstrap requires ADMIN_EMAIL, ADMIN_PASSWORD (16+ characters), and ADMIN_MFA_ENCRYPTION_KEY. No automatic destructive reset was added. Dropping a database does not cancel Razorpay transactions.
 
 Verification in editing environment: existing Node CSRF tests passed (3/3). Maven unavailable; frontend dependencies unavailable in offline npm cache, so full builds and live TiDB/Brevo/Razorpay integration tests were not executed. Test in a disposable database before deploying.
+
+### Certificate email and manual enrollment update
+- Modal focus is initialized only when opened, not on each form edit.
+- Admin manual enrollment accepts OPEN, CLOSED and DRAFT batches; completed batches remain excluded. Batch fetch failures are shown with retry.
+- V22 adds certificate email status. Generated and uploaded certificates trigger email after issuance commits. Admin can resend from Certificates. SENT means the email provider accepted the request, not confirmed inbox delivery. Existing certificates are NOT_SENT until manually resent.
+- Existing Brevo configuration is reused. No database reset is required. Email attempts are synchronous after commit and can take time; issuance is retained if email fails. Existing batch draft generation still requires individual approval.

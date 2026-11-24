@@ -34,7 +34,7 @@ public class ManualEnrollmentController {
         String reference="OFFLINE-"+UUID.randomUUID();
         Map<String,Object> receipt=tx.execute(status -> {
             var rows=db.queryForList("SELECT * FROM academy_batches WHERE id=? FOR UPDATE",r.batchId());
-            if(rows.isEmpty() || !Set.of("OPEN","CLOSED").contains(rows.get(0).get("status"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Select an open or closed batch.");
+            if(rows.isEmpty() || !Set.of("OPEN","CLOSED","DRAFT").contains(rows.get(0).get("status"))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Select a non-completed batch.");
             var batch=rows.get(0);
             BigDecimal fee=new BigDecimal(batch.get("course_fee").toString());
             if(r.amount().compareTo(fee)!=0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Amount received must equal the batch fee.");

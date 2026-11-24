@@ -155,6 +155,13 @@ class StudentMail {
         return "<p><a style='display:inline-block;background:" + color + ";color:white;padding:12px 18px;border-radius:8px;text-decoration:none' href='" + esc(url) + "'>" + label + "</a></p>";
     }
 
+    boolean certificate(String email, String name, String code, byte[] pdf) {
+        String base = publicUrl.replaceAll("/+$", "");
+        String plain = "Assalamu Alaikum, " + name + "!\n\nYour Islamic Learning Programme certificate has been issued. Your PDF is attached.\nCertificate: " + code + "\nLogin: " + base + "/login\nMay Allah grant you beneficial knowledge. Ameen.";
+        String html = "<div style='font-family:Arial;color:#172d43;max-width:560px;margin:auto'><div style='background:#10254c;color:#e6c77b;padding:24px;text-align:center'><img width='76' alt='Academy logo' src='" + esc(base + "/logo-transparent.png") + "'><h2>Hajara Ilm Academy</h2>Certificate of Completion</div><div style='padding:24px'><h2>Assalamu Alaikum, " + esc(name) + "!</h2><p>Congratulations on completing the Islamic Learning Programme. Your certificate has been issued and is attached as a PDF.</p><p>Certificate: " + esc(code) + "</p>" + button(base + "/login", "Login to Student Dashboard", "#173b75") + "<p>May Allah grant you beneficial knowledge. Ameen.</p><p>Hajara Ilm Academy</p></div></div>";
+        return sendEmail(email, "Certificate issued | Hajara Ilm Academy", plain, html, pdf, "HIA-certificate.pdf");
+    }
+
     boolean receipt(String email, String reference, byte[] pdf) {
         return sendEmail(email, "Payment receipt | Hajara Ilm Academy", "Your payment was verified. Your receipt is attached. Reference: " + reference, null, pdf);
     }
@@ -166,6 +173,9 @@ class StudentMail {
             String subject,
             String plain,
             String html, byte[] pdf) {
+        return sendEmail(email, subject, plain, html, pdf, "Hajara-receipt.pdf");
+    }
+    private boolean sendEmail(String email, String subject, String plain, String html, byte[] pdf, String filename) {
 
         if (apiKey.isBlank() || senderEmail.isBlank()) {
             LOG.error("Brevo email configuration is incomplete");
@@ -189,7 +199,7 @@ class StudentMail {
                 payload.put("htmlContent", html);
             }
 
-            if (pdf != null) { var attachment = payload.putArray("attachment").addObject(); attachment.put("name","Hajara-receipt.pdf"); attachment.put("content",java.util.Base64.getEncoder().encodeToString(pdf)); }
+            if (pdf != null) { var attachment = payload.putArray("attachment").addObject(); attachment.put("name",filename); attachment.put("content",java.util.Base64.getEncoder().encodeToString(pdf)); }
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(BREVO_URL)
                     .timeout(Duration.ofSeconds(20))

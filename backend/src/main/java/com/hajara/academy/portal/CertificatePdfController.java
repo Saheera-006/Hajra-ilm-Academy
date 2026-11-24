@@ -36,6 +36,9 @@ public class CertificatePdfController {
  }
  @GetMapping("/admin/certificates/{id}/pdf") public ResponseEntity<byte[]> adminDownload(Authentication auth,@PathVariable Long id)throws IOException{
   if(!"ADMIN".equals(current.require(auth).role))throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+  return issuedPdf(id);
+ }
+ ResponseEntity<byte[]> issuedPdf(Long id)throws IOException{
   var rows=jdbc.queryForList("SELECT c.certificate_code,c.issued_at,COALESCE(c.display_name,u.full_name) AS full_name,u.student_number,c.completion_date FROM academy_certificates c JOIN portal_enrollments e ON e.id=c.enrollment_id JOIN portal_users u ON u.id=e.user_id WHERE c.id=?",id);
   if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND);
   var manual=jdbc.query("SELECT pdf_data FROM academy_certificate_uploaded_pdfs WHERE certificate_id=?",(rs,n)->rs.getBytes(1),id);
