@@ -6,7 +6,8 @@ WORKDIR /app
 COPY pom.xml .
 COPY src ./src
 
-RUN mvn -B -DskipTests package
+COPY settings.xml /app/settings.xml
+RUN mvn -s /app/settings.xml -B -DskipTests package
 
 # Stage 2: Run the application
 FROM eclipse-temurin:21-jre
