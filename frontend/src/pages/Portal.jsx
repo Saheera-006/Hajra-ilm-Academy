@@ -72,10 +72,6 @@ export function Register() {
   const batch = useLoad('/batches/current');
   const [form, setForm] = useState({ name: '', age: '', email: '', phone: '', password: '' });
   const [checkout, setCheckout] = useState(null);
-  const [billing,setBilling]=useState({door:'',street:'',area:'',pin:'',city:'',state:''});
-  const billingFields=[['door','Door / House No.',40,'address-line1'],['street','Street / Address Line 1',120,'address-line2'],['area','Area / Address Line 2 (optional)',100,'address-line3'],['pin','PIN Code',6,'postal-code'],['city','City / Town',80,'address-level2'],['state','State',80,'address-level1']];
-  const address=[billing.door,billing.street,billing.area,billing.city,billing.state,billing.pin,'India'].map(v=>v.trim()).filter(Boolean).join(', ');
-  const billingValid=['door','street','city','state'].every(k=>billing[k].trim()) && /^[1-9][0-9]{5}$/.test(billing.pin) && address.length<=500;
   const [verification, setVerification] = useState(readPendingVerification);
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
@@ -144,11 +140,10 @@ export function Register() {
   async function pay() {
     setBusy(true); setError('');
     try {
-      if (!billingValid) throw new Error('Complete your billing address and enter a valid six-digit PIN code.');
       if (!window.Razorpay) await new Promise((resolve,reject)=>{
         const script=document.createElement('script'); script.src='https://checkout.razorpay.com/v1/checkout.js'; script.onload=resolve; script.onerror=()=>reject(new Error('Could not load payment checkout.')); document.head.appendChild(script);
       });
-      const order=await portal('/auth/razorpay/order',{method:'POST',body:JSON.stringify({checkoutId:checkout.checkoutId,address,gstin:''})});
+      const order=await portal('/auth/razorpay/order',{method:'POST',body:JSON.stringify({checkoutId:checkout.checkoutId})});
       const rz=new window.Razorpay({key:order.key,order_id:order.orderId,amount:order.amount,currency:'INR',name:'Hajara Ilm Academy',description:'Islamic Learning Programme',prefill:{name:order.name,email:order.email,contact:order.phone},theme:{color:'#172d43'},modal:{ondismiss:()=>setBusy(false)},handler:async r=>{
         try {if(r.razorpay_order_id!==order.orderId)throw new Error('Checkout order mismatch.');const data=await portal('/auth/razorpay/verify',{method:'POST',body:JSON.stringify({orderId:order.orderId,paymentId:r.razorpay_payment_id,signature:r.razorpay_signature})});setResult(data);setCheckout(null);}
         catch(e){setCheckout(old=>({...old,confirmationPending:true}));setError('Payment confirmation pending. Do not pay again. Contact the academy with '+r.razorpay_payment_id+'. '+e.message);}finally{setBusy(false);}
@@ -204,7 +199,7 @@ export function Register() {
             {result.success ? (pushConfigured ? 'Maybe later · Continue to login' : 'Continue to student login') : 'Try again'}
           </button>
         </div>
-        : checkout ? <div className="grid gap-4 text-[#172d43]"><h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Programme payment</h2><p>Islamic Learning Programme</p><p>Total payable: ₹{Number(checkout.amount).toLocaleString('en-IN')}</p>{checkout.razorpay ? <><h3 className="font-semibold">Billing details</h3>{billingFields.map(([key,label,maxLength,autoComplete])=><label key={key}>{label}{key!=='area'?' *':''}<input className={input} maxLength={maxLength} autoComplete={autoComplete} required={key!=='area'} inputMode={key==='pin'?'numeric':'text'} value={billing[key]} onChange={e=>setBilling(old=>({...old,[key]:key==='pin'?e.target.value.replace(/[^0-9]/g,''):e.target.value}))}/></label>)}<label>Country<input className={input} value="India" readOnly/></label>{billing.pin.length>0&&!/^[1-9][0-9]{5}$/.test(billing.pin)&&<p role="alert">Enter a valid six-digit PIN code.</p>}<button className={button} disabled={busy||!billingValid||checkout.confirmationPending} onClick={pay}>Pay securely with Razorpay</button></> : checkout.demoEnabled ? <><p>Demo only — no real money collected.</p><button className={button} disabled={busy} onClick={()=>simulate(true)}>Simulate payment</button><button disabled={busy} onClick={()=>simulate(false)}>Simulate failure</button></> : <p>Online payments are not configured. Contact the academy.</p>}</div>
+        : checkout ? <div className="grid gap-4 text-[#172d43]"><h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Programme payment</h2><p>Islamic Learning Programme</p><p>Total payable: ₹{Number(checkout.amount).toLocaleString('en-IN')}</p>{checkout.razorpay ? <><button className={button} disabled={busy||checkout.confirmationPending} onClick={pay}>Pay securely with Razorpay</button></> : checkout.demoEnabled ? <><p>Demo only — no real money collected.</p><button className={button} disabled={busy} onClick={()=>simulate(true)}>Simulate payment</button><button disabled={busy} onClick={()=>simulate(false)}>Simulate failure</button></> : <p>Online payments are not configured. Contact the academy.</p>}</div>
         : verification ? <form onSubmit={verifyEmail} className="grid gap-4 text-[#172d43]">
           <h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Verify your email</h2>
           <p>Enter the six-digit code from your email. It expires in 15 minutes. Stay on the same browser and website address where you started enrollment.</p>

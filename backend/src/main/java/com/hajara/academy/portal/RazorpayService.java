@@ -38,15 +38,14 @@ public class RazorpayService {
   }catch(InterruptedException e){Thread.currentThread().interrupt();throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,"Gateway interrupted.");}catch(Exception e){throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,"Payment gateway unavailable. Check payment status before retrying.");}
  }
  @Transactional
- public Map<String,Object> order(DemoEnrollmentController.Pending p,String address,String gstin){
-  if(address==null||address.isBlank()||address.length()>500||gstin==null||gstin.length()>20)throw bad("Enter valid billing details.");
+ public Map<String,Object> order(DemoEnrollmentController.Pending p){
   var existing=db.queryForList("SELECT * FROM razorpay_orders WHERE checkout_id=?",p.checkoutId());
   if(!existing.isEmpty())return checkout(existing.get(0));
   var b=batches.openBatch();if(b.isEmpty()||((Number)b.get("id")).longValue()!=p.batchId())throw bad("Enrollment closed.");
   long amount=new BigDecimal(b.get("course_fee").toString()).movePointRight(2).longValueExact();if(amount<100)throw bad("Minimum payment is INR 1.");
   var o=api("orders",Map.of("amount",amount,"currency","INR","receipt",p.checkoutId()));
   String id=o.path("id").asText();if(!id.startsWith("order_"))throw bad("Invalid gateway order.");
-  db.update("INSERT INTO razorpay_orders(checkout_id,order_id,full_name,age,email,phone,password_hash,batch_id,course_id,amount_paise,billing_address,gstin) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",p.checkoutId(),id,p.name(),p.age(),p.email(),p.phone(),p.passwordHash(),p.batchId(),b.get("course_id"),amount,address.trim(),gstin.trim());
+  db.update("INSERT INTO razorpay_orders(checkout_id,order_id,full_name,age,email,phone,password_hash,batch_id,course_id,amount_paise,billing_address,gstin) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",p.checkoutId(),id,p.name(),p.age(),p.email(),p.phone(),p.passwordHash(),p.batchId(),b.get("course_id"),amount,"","");
   return checkout(db.queryForMap("SELECT * FROM razorpay_orders WHERE checkout_id=?",p.checkoutId()));
  }
  Map<String,Object> checkout(Map<String,Object> r){return Map.of("key",key,"orderId",r.get("order_id"),"amount",r.get("amount_paise"),"email",r.get("email"),"name",r.get("full_name"),"phone",r.get("phone"));}

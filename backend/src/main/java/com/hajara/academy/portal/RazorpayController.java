@@ -17,7 +17,7 @@ public class RazorpayController {
  record Order(String checkoutId,String address,String gstin){}
  record Verify(String orderId,String paymentId,String signature){}
  @PostMapping("/api/portal/auth/razorpay/order")
- public Map<String,Object> order(@RequestBody Order r,HttpSession session){synchronized(session){return service.order(registration.verifiedPending(session,r.checkoutId()),r.address(),r.gstin());}}
+ public Map<String,Object> order(@RequestBody Order r,HttpSession session){synchronized(session){return service.order(registration.verifiedPending(session,r.checkoutId()));}}
  @PostMapping("/api/portal/auth/razorpay/verify")
  public Map<String,Object> verify(@RequestBody Verify r){
   if(!service.verifyCheckoutSignature(r.orderId(),r.paymentId(),r.signature())){log.warn("Razorpay checkout signature rejected; order={}, payment={}",safeRef(r.orderId()),safeRef(r.paymentId()));throw RazorpayService.bad("Invalid payment signature.");}
