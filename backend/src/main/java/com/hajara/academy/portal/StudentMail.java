@@ -128,6 +128,33 @@ class StudentMail {
         );
     }
 
+    private static String esc(String value) {
+        return org.springframework.web.util.HtmlUtils.htmlEscape(value == null ? "" : value);
+    }
+
+    @Value("${app.public-url:https://hajarailmacademy.pages.dev}")
+    private String publicUrl;
+
+    boolean enrollmentWelcome(String email, String name, String studentId, String whatsapp, byte[] pdf, boolean offline) {
+        String base = publicUrl.replaceAll("/+$", "");
+        String login = base + "/login";
+        String setup = base + "/forgot-password";
+        boolean hasGroup = whatsapp != null && !whatsapp.isBlank() && (whatsapp.startsWith("https://chat.whatsapp.com/") || whatsapp.startsWith("https://wa.me/") || whatsapp.startsWith("https://whatsapp.com/"));
+        String instructions = offline ? "Set your password using the secure email-code password setup page before signing in." : "Sign in using your registered email and the password you created during registration.";
+        String plain = "Assalamu Alaikum Wa Rahmatullahi Wa Barakatuh, " + name + "!\n\nWelcome to Hajara Ilm Academy. Your Islamic Learning Programme enrollment is confirmed.\nStudent ID: " + studentId + "\nRegistered email: " + email + "\n" + instructions + "\nLogin: " + login + (offline ? "\nSet password: " + setup : "") + (hasGroup ? "\nJoin WhatsApp Group: " + whatsapp : "") + (pdf != null ? "\nYour payment receipt is attached." : "") + "\nMay Allah grant you beneficial knowledge. Ameen.";
+        String html = "<div style='background:#f3f5f8;padding:20px;font-family:Arial,sans-serif;color:#172d43'><div style='max-width:560px;margin:auto;background:white;border:1px solid #ddd;border-radius:14px;overflow:hidden'>"
+            + "<div style='background:#10254c;color:#e6c77b;padding:24px;text-align:center'><img width='76' alt='Academy logo' src='" + esc(base + "/logo-transparent.png") + "'><h2>Hajara Ilm Academy</h2>Islamic Learning Programme</div>"
+            + "<div style='padding:24px'><h2>Welcome to Hajara Ilm Academy!</h2><p><strong>Assalamu Alaikum Wa Rahmatullahi Wa Barakatuh,</strong></p><p>Dear " + esc(name) + ",</p><p>Alhamdulillah! Your enrollment is confirmed. May Allah bless your learning journey and grant you beneficial knowledge. Ameen.</p>"
+            + "<div style='background:#f3f5f8;padding:16px;border-radius:8px'><strong>Student ID:</strong> " + esc(studentId) + "<br><strong>Registered email:</strong> " + esc(email) + "</div><h3>Access Your Student Dashboard</h3><p>" + instructions + "</p>"
+            + (offline ? button(setup,"Set Your Password","#173b75") : "") + button(login,"Login to Student Dashboard","#173b75")
+            + (hasGroup ? "<h3>Join Your WhatsApp Group</h3><p>Receive class schedules and important updates.</p>" + button(whatsapp,"Join WhatsApp Group","#16834b") : "")
+            + (pdf != null ? "<h3>Payment Receipt</h3><p>Your payment receipt is attached as a PDF.</p>" : "") + "<p>Jazakillahu Khairan,<br>Hajara Ilm Academy</p></div><div style='background:#10254c;color:#e6c77b;padding:16px;text-align:center'>Hajara Ilm Academy</div></div></div>";
+        return sendEmail(email,"Welcome to Hajara Ilm Academy | Enrollment confirmed",plain,html,pdf);
+    }
+    private static String button(String url,String label,String color) {
+        return "<p><a style='display:inline-block;background:" + color + ";color:white;padding:12px 18px;border-radius:8px;text-decoration:none' href='" + esc(url) + "'>" + label + "</a></p>";
+    }
+
     boolean receipt(String email, String reference, byte[] pdf) {
         return sendEmail(email, "Payment receipt | Hajara Ilm Academy", "Your payment was verified. Your receipt is attached. Reference: " + reference, null, pdf);
     }

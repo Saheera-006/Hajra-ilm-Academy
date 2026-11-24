@@ -82,7 +82,7 @@ final class ReceiptPdf {
         float a=wrap(36,595,val(r,"full_name"),250,11);
         a=wrap(36,a-3,"Student ID: "+val(r,"student_id"),250,10);
         a=wrap(36,a-3,val(r,"email"),250,10);
-        float b=wrap(310,595,"Gateway: Razorpay",249,10);
+        float b=wrap(310,595,"Payment method: "+Objects.toString(r.get("provider"),"Razorpay"),249,10);
         b=wrap(310,b-3,"Paid at: "+val(r,"paid_at"),249,10);
         b=wrap(310,b-3,"Payment ID: "+val(r,"payment_id"),249,10);
         b=wrap(310,b-3,"Order ID: "+val(r,"order_id"),249,10);

@@ -9,13 +9,40 @@ export default function Students() {
   const [q, setQ] = useState('');
   const [batchId, setBatchId] = useState('');
   const [page, setPage] = useState(0);
+  const [adding, setAdding] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [form, setForm] = useState({name:'',age:'',email:'',phone:'',batchId:'',method:'CASH',amount:''});
+  const set = key => e => setForm(f => ({...f,[key]:e.target.value}));
+  async function add(e) {
+    e.preventDefault(); setBusy(true); setError('');
+    try {
+      const result = await portal('/admin/students/manual',{method:'POST',body:JSON.stringify({...form,age:Number(form.age),batchId:Number(form.batchId),amount:Number(form.amount)})});
+      setNotice(`Student ${result.studentId} added. ${result.welcomeEmailSent ? 'Welcome email sent.' : 'Email delivery failed; student can use Forgot password.'}`);
+      setAdding(false); list.reload();
+    } catch(e) {setError(e.message);} finally {setBusy(false);}
+  }
   const dq = useDebounced(q);
   const batches = useApi('/admin/batches');
   const list = useApi(`/admin/students/directory?q=${encodeURIComponent(dq)}&page=${page}&size=15${batchId ? `&batchId=${batchId}` : ''}`);
 
   return (
     <div>
-      <PageHeader title="Students" description="Every enrolled student, by Student ID." />
+      <PageHeader title="Students" description="Every enrolled student, by Student ID." actions={<Button onClick={()=>{setError('');setNotice('');setForm({name:'',age:'',email:'',phone:'',batchId:'',method:'CASH',amount:''});setAdding(true);}}>+ Add Student</Button>} />
+      {notice && <p role="status" className="mb-4 text-sm">{notice}</p>}
+      <Modal open={adding} onClose={()=>{if(!busy)setAdding(false);}} title="Add offline student">
+        <form onSubmit={add} className="grid gap-3">
+          <StatusMessage error={error}/>
+          <p className="text-sm">Record a fully paid offline enrollment. The student will receive password setup instructions by email.</p>
+          {[["name","Full name","text"],["age","Age","number"],["email","Email","email"],["phone","Phone","tel"]].map(([key,label,type])=><label key={key} className="grid gap-1 text-sm">{label}<input required className={inputClass} type={type} value={form[key]} onChange={set(key)} {...(key==='age'?{min:5,max:120}:{})}/></label>)}
+          <label className="grid gap-1 text-sm">Batch<select required className={inputClass} value={form.batchId} onChange={e=>{const b=batches.data?.find(b=>String(b.id)===e.target.value);setForm(f=>({...f,batchId:e.target.value,amount:String(b?.course_fee??'')}));}}><option value="">Select batch</option>{batches.data?.filter(b=>['OPEN','CLOSED'].includes(b.status)).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+          <label className="grid gap-1 text-sm">Payment method<select className={inputClass} value={form.method} onChange={set('method')}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK">Bank transfer</option></select></label>
+          <label className="grid gap-1 text-sm">Amount received (₹)<input required type="number" min="0" step="0.01" className={inputClass} value={form.amount} onChange={set('amount')}/></label>
+          <label className="flex gap-2 text-sm"><input required type="checkbox"/>I confirm the full fee has been received and the email belongs to this student.</label>
+          <Button type="submit" loading={busy} disabled={busy}>Enroll student</Button>
+        </form>
+      </Modal>
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchBox value={q} onChange={(v) => { setQ(v); setPage(0); }} placeholder="Search by Student ID or name" />
         <select aria-label="Filter by batch" className={`${inputClass} w-full sm:w-64`} value={batchId} onChange={(e) => { setBatchId(e.target.value); setPage(0); }}>
@@ -32,7 +59,7 @@ export default function Students() {
             <tbody className="divide-y divide-[var(--p-border)]">
               {list.data.items.map((s) => (
                 <tr key={s.userId} className="hover:bg-[var(--p-surface-2)]">
-                  <Td><StudentIdCell id={s.studentId} /></Td><Td className="font-medium">{s.name}</Td>
+                  <Td><StudentIdCell id={s.studentId} /></Td><Td className="font-medium">{s.name}<div className="text-xs text-[var(--p-muted)]">{s.registrationSource}</div></Td>
                   <Td>{s.batchId ? <Link className="hover:text-[var(--p-accent)]" to={`/admin/batches/${s.batchId}`}>{s.batchName}</Link> : <span className="text-[var(--p-muted)]">—</span>}</Td>
                   <Td>{s.enrollmentStatus ? <Badge tone={s.enrollmentStatus === 'ACTIVE' ? 'success' : 'neutral'}>{s.enrollmentStatus}</Badge> : <Badge>No enrollment</Badge>}</Td>
                   <Td className="text-[var(--p-muted)]"><div>{s.email}</div><div className="text-xs">{s.phone}</div></Td>

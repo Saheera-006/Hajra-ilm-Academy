@@ -47,6 +47,7 @@ server:
     include-exception: false
 
 app:
+  public-url: ${PUBLIC_WEBSITE_URL:https://hajarailmacademy.pages.dev}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 

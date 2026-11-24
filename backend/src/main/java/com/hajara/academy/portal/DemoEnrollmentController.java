@@ -129,7 +129,7 @@ public class DemoEnrollmentController {
             session.removeAttribute(PENDING);
             session.removeAttribute(VERIFICATION);
         }
-        result.put("welcomeEmailSent", mail.welcome(pending.email(), pending.name(), (String) result.get("studentId")));
+        result.put("welcomeEmailSent", mail.enrollmentWelcome(pending.email(), pending.name(), (String) result.get("studentId"), (String)batches.get(pending.batchId()).get("whatsapp_link"), null, false));
         return result;
     }
 }
