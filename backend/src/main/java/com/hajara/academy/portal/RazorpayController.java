@@ -41,15 +41,7 @@ public class RazorpayController {
  }
  synchronized boolean send(String order){var r=service.getDb().queryForMap("SELECT * FROM razorpay_orders WHERE order_id=?",order);if(Boolean.TRUE.equals(r.get("email_sent"))||"1".equals(String.valueOf(r.get("email_sent"))))return true;try{boolean ok=mail.receipt((String)r.get("email"),(String)r.get("payment_id"),pdf(r));if(ok)service.getDb().update("UPDATE razorpay_orders SET email_sent=TRUE WHERE order_id=?",order);return ok;}catch(Exception e){return false;}}
  static String money(Object n){return n==null?"Pending":java.math.BigDecimal.valueOf(((Number)n).longValue(),2).toPlainString();}
- static byte[] pdf(Map<String,Object> r)throws IOException{
-  try(var doc=new PDDocument();var out=new ByteArrayOutputStream()){
-   var page=new PDPage(PDRectangle.A4);doc.addPage(page);
-   try(var cs=new PDPageContentStream(doc,page)){
-    cs.beginText();cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA),12);cs.newLineAtOffset(45,780);
-    for(String line:List.of("HAJARA ILM ACADEMY","Payment receipt (not a GST tax invoice)","Islamic Learning Programme","Receipt: "+r.get("payment_id"),"Student: "+r.get("full_name"),"Student ID: "+r.get("student_id"),"Email: "+r.get("email"),"Paid at: "+r.get("paid_at"),"Total paid: INR "+money(r.get("amount_paise")),"Refunded: INR "+money(r.get("refunded_paise")),"Billing address: "+r.get("billing_address"))){String clean=line.replaceAll("[^\\x20-\\x7E]","?");for(int i=0;i<clean.length();i+=75){cs.showText(clean.substring(i,Math.min(i+75,clean.length())));cs.newLineAtOffset(0,-19);}}cs.endText();
-   }doc.save(out);return out.toByteArray();
-  }
- }
+ static byte[] pdf(Map<String,Object> r)throws IOException{return ReceiptPdf.render(r);}
  static final String FIELDS="order_id,payment_id,full_name,email,billing_address,gstin,status,amount_paise,fee_paise,tax_paise,refunded_paise,student_id,email_sent,created_at,paid_at";
  @GetMapping("/api/portal/admin/razorpay") public List<Map<String,Object>> admin(){return service.getDb().queryForList("SELECT "+FIELDS+" FROM razorpay_orders ORDER BY created_at DESC LIMIT 1000");}
  @PostMapping("/api/portal/admin/razorpay/{order}/retry") public Map<String,Object> retry(@PathVariable String order){var r=service.getDb().queryForMap("SELECT * FROM razorpay_orders WHERE order_id=?",order);if(r.get("payment_id")==null)throw RazorpayService.bad("Payment not verified.");return Map.of("sent",send(order));}
