@@ -31,16 +31,16 @@ export default function Students() {
     <div>
       <PageHeader title="Students" description="Every enrolled student, by Student ID." actions={<Button onClick={()=>{setError('');setNotice('');setForm({name:'',age:'',email:'',phone:'',batchId:'',method:'CASH',amount:''});setAdding(true);}}>+ Add Student</Button>} />
       {notice && <p role="status" className="mb-4 text-sm">{notice}</p>}
-      <Modal open={adding} onClose={()=>{if(!busy)setAdding(false);}} title="Add offline student">
-        <form onSubmit={add} className="grid gap-3">
-          <StatusMessage error={error}/>
-          <p className="text-sm">Record a fully paid offline enrollment. The student will receive password setup instructions by email.</p>
+      <Modal open={adding} onClose={()=>{if(!busy)setAdding(false);}} title="Add offline student" wide footer={<><Button variant="ghost" onClick={()=>setAdding(false)} disabled={busy}>Cancel</Button><Button type="submit" form="manual-enrollment" loading={busy} disabled={busy}>Enroll student</Button></>}>
+        <form id="manual-enrollment" onSubmit={add} className="grid gap-3 sm:grid-cols-2">
+          <div className="sm:col-span-2"><StatusMessage error={error}/></div>
+          <p className="text-sm sm:col-span-2">Record a fully paid offline enrollment. The student will receive password setup instructions by email.</p>
           {[["name","Full name","text"],["age","Age","number"],["email","Email","email"],["phone","Phone","tel"]].map(([key,label,type])=><label key={key} className="grid gap-1 text-sm">{label}<input required className={inputClass} type={type} value={form[key]} onChange={set(key)} {...(key==='age'?{min:5,max:120}:{})}/></label>)}
           <label className="grid gap-1 text-sm">Batch<select required className={inputClass} value={form.batchId} onChange={e=>{const b=batches.data?.find(b=>String(b.id)===e.target.value);setForm(f=>({...f,batchId:e.target.value,amount:String(b?.course_fee??'')}));}}><option value="">Select batch</option>{batches.data?.filter(b=>['OPEN','CLOSED'].includes(b.status)).map(b=><option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
           <label className="grid gap-1 text-sm">Payment method<select className={inputClass} value={form.method} onChange={set('method')}><option value="CASH">Cash</option><option value="UPI">UPI</option><option value="BANK">Bank transfer</option></select></label>
           <label className="grid gap-1 text-sm">Amount received (₹)<input required type="number" min="0" step="0.01" className={inputClass} value={form.amount} onChange={set('amount')}/></label>
-          <label className="flex gap-2 text-sm"><input required type="checkbox"/>I confirm the full fee has been received and the email belongs to this student.</label>
-          <Button type="submit" loading={busy} disabled={busy}>Enroll student</Button>
+          <label className="flex gap-2 text-sm sm:col-span-2"><input required type="checkbox"/>I confirm the full fee has been received and the email belongs to this student.</label>
+
         </form>
       </Modal>
       <div className="mb-4 flex flex-wrap gap-3">

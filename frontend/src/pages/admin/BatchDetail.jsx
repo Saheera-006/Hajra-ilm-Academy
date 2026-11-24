@@ -24,6 +24,7 @@ export default function BatchDetail() {
 
   const b = batch.data;
   const open = optimistic ?? b?.status === 'OPEN';
+  const test = Number(b?.batch_number) === 0;
   const locked = b?.status === 'COMPLETED';
 
   async function toggle(next) {
@@ -44,7 +45,7 @@ export default function BatchDetail() {
 
   async function deleteBatch() {
     setDeletingBusy(true);setFlash({ error: '', notice: '' });
-    try { await portal(`/admin/batches/${batchId}`, { method: 'DELETE' }); navigate('/admin/batches', { replace: true }); }
+    try { if(test){const r=await portal(`/admin/batches/${batchId}/restart`,{method:'POST'});setDeleting(false);setFlash({error:'',notice:r.message});batch.reload();roster.reload();}else{await portal(`/admin/batches/${batchId}`, { method: 'DELETE' }); navigate('/admin/batches', { replace: true });} }
     catch (e) { setFlash({ error: e.message, notice: '' }); setDeleting(false); }
     finally { setDeletingBusy(false); }
   }
@@ -71,7 +72,7 @@ export default function BatchDetail() {
           <div className="flex flex-col items-end gap-4">
             <div className="flex gap-2">
               {b.status !== 'COMPLETED' && <Button variant="secondary" onClick={() => setCompleting(true)}><CheckCircle2 className="h-4 w-4" />Complete batch</Button>}
-              {<Button variant="secondary" onClick={() => setDeleting(true)}><Trash2 className="h-4 w-4" />Delete batch</Button>}
+              {<Button variant="secondary" onClick={() => setDeleting(true)}><Trash2 className="h-4 w-4" />{test ? 'Restart Test Batch' : 'Delete batch'}</Button>}
               <Button variant="secondary" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" />Edit Batch</Button>
             </div>
             <div className="rounded-xl border border-[var(--p-border)] bg-[var(--p-surface-2)] px-4 py-3">
@@ -109,8 +110,8 @@ export default function BatchDetail() {
       <Modal open={completing} onClose={() => setCompleting(false)} title="Complete this batch?" footer={<><Button variant="ghost" onClick={() => setCompleting(false)}>Cancel</Button><Button onClick={complete}>Complete batch</Button></>}>
         <p>Completing a batch closes registration and enables eligible certificates. You can still correct its metadata later.</p>
       </Modal>
-      <Modal open={deleting} onClose={() => setDeleting(false)} title="Delete unused batch?" footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button disabled={deletingBusy} onClick={deleteBatch}>{deletingBusy ? 'Deleting…' : 'Delete unused batch'}</Button></>}>
-        <p>Only never-used batches (including empty completed batches) can be deleted. Batches with student history are protected, and their numbers cannot be reused.</p>
+      <Modal open={deleting} onClose={() => setDeleting(false)} title={test ? "Restart Test Batch?" : "Delete unused batch?"} footer={<><Button variant="ghost" onClick={() => setDeleting(false)}>Cancel</Button><Button disabled={deletingBusy} onClick={deleteBatch}>{deletingBusy ? 'Working…' : test ? 'Confirm restart' : 'Delete unused batch'}</Button></>}>
+        {test ? <p>All test students and batch-specific content will be removed. Razorpay paid records are retained; no refunds are issued. Registration will be closed.</p> : <p>Only never-used batches (including empty completed batches) can be deleted. Batches with student history are protected, and their numbers cannot be reused.</p>}
       </Modal>
       <BatchFormModal key={String(editing)} open={editing} batch={b} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); batch.reload(); setFlash({ error: '', notice: 'Batch updated' }); }} />
     </div>

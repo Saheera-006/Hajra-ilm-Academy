@@ -83,7 +83,7 @@ export function EmptyState({ icon: Icon = Inbox, title, text, action }) {
   );
 }
 
-export function Modal({ open, onClose, title, children, footer }) {
+export function Modal({ open, onClose, title, children, footer, wide = false }) {
   const ref = useRef(null);
   useEffect(() => {
     if (!open) return undefined;
@@ -96,13 +96,13 @@ export function Modal({ open, onClose, title, children, footer }) {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center p-4">
       <button aria-label="Close dialog" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className="relative w-full max-w-lg rounded-2xl border border-[var(--p-border)] bg-[var(--p-surface)] p-6 shadow-2xl outline-none">
-        <div className="mb-4 flex items-start justify-between gap-4">
+      <div ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} className={`relative flex max-h-[calc(100dvh-2rem)] w-full ${wide ? 'max-w-2xl' : 'max-w-lg'} flex-col rounded-2xl border border-[var(--p-border)] bg-[var(--p-surface)] p-4 sm:p-6 shadow-2xl outline-none`}>
+        <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
           <h2 className="font-sans text-lg font-semibold text-[var(--p-text)]">{title}</h2>
           <button onClick={onClose} aria-label="Close" className="rounded-lg p-1.5 text-[var(--p-muted)] hover:bg-[var(--p-surface-3)]"><X className="h-5 w-5" /></button>
         </div>
-        <div className="text-sm text-[var(--p-text)]">{children}</div>
-        {footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}
+        <div className="min-h-0 overflow-y-auto overscroll-contain text-sm text-[var(--p-text)]">{children}</div>
+        {footer && <div className="mt-4 flex shrink-0 justify-end gap-3">{footer}</div>}
       </div>
     </div>
   );
