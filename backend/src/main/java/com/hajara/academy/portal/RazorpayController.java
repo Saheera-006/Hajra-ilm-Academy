@@ -12,6 +12,7 @@ import org.apache.pdfbox.pdmodel.common.PDRectangle;
 
 @RestController
 public class RazorpayController {
+ private static final org.slf4j.Logger log=org.slf4j.LoggerFactory.getLogger(RazorpayController.class);
  final RazorpayService service; final DemoEnrollmentController registration; final StudentMail mail; final CurrentUser users;
  RazorpayController(RazorpayService service,DemoEnrollmentController registration,StudentMail mail,CurrentUser users){this.service=service;this.registration=registration;this.mail=mail;this.users=users;}
  record Order(String checkoutId,String address,String gstin){}
@@ -20,14 +21,18 @@ public class RazorpayController {
  public Map<String,Object> order(@RequestBody Order r,HttpSession session){synchronized(session){return service.order(registration.verifiedPending(session,r.checkoutId()),r.address(),r.gstin());}}
  @PostMapping("/api/portal/auth/razorpay/verify")
  public Map<String,Object> verify(@RequestBody Verify r){
-  if(!RazorpayService.signature(service.secret,(r.orderId()+"|"+r.paymentId()).getBytes(StandardCharsets.UTF_8),r.signature()))throw RazorpayService.bad("Invalid payment signature.");
+  if(!RazorpayService.signature(service.secret,(r.orderId()+"|"+r.paymentId()).getBytes(StandardCharsets.UTF_8),r.signature())){log.warn("Razorpay checkout signature rejected; order={}, payment={}",safeRef(r.orderId()),safeRef(r.paymentId()));throw RazorpayService.bad("Invalid payment signature.");}
   var result=new HashMap<>(service.capture(r.orderId(),r.paymentId()));result.put("welcomeEmailSent",send(r.orderId()));return result;
  }
+ static String safeRef(String s){return s!=null&&s.matches("(order|pay)_[A-Za-z0-9]{1,70}")?s:"invalid";}
+ record Recover(String paymentId){}
+ @PostMapping("/api/portal/admin/razorpay/{order}/recover")
+ public Map<String,Object> recover(@PathVariable String order,@RequestBody Recover r){var result=new HashMap<>(service.capture(order,r.paymentId()));result.put("welcomeEmailSent",send(order));return result;}
  @PostMapping("/api/payments/razorpay/webhook")
  public Map<String,Object> webhook(@RequestBody byte[] body,@RequestHeader(value="X-Razorpay-Signature",required=false) String sig) throws Exception {
-  if(!RazorpayService.signature(service.webhookSecret,body,sig))throw RazorpayService.bad("Invalid webhook signature.");
+  if(!RazorpayService.signature(service.webhookSecret,body,sig)){log.warn("Razorpay webhook signature rejected");throw RazorpayService.bad("Invalid webhook signature.");}
   var event=service.json.readTree(body);String type=event.path("event").asText();
-  if("payment.captured".equals(type)||"refund.processed".equals(type)){
+  if("payment.captured".equals(type)||"order.paid".equals(type)||"refund.processed".equals(type)){
    String payment=event.path("payload").path("payment").path("entity").path("id").asText();
    if(payment.isBlank())payment=event.path("payload").path("refund").path("entity").path("payment_id").asText();
    if(!payment.matches("pay_[A-Za-z0-9]+"))throw RazorpayService.bad("Invalid payment ID.");
@@ -42,7 +47,7 @@ public class RazorpayController {
    var page=new PDPage(PDRectangle.A4);doc.addPage(page);
    try(var cs=new PDPageContentStream(doc,page)){
     cs.beginText();cs.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA),12);cs.newLineAtOffset(45,780);
-    for(String line:List.of("HAJARA ILM ACADEMY","Payment receipt (not a GST tax invoice)","Islamic Learning Programme","Receipt: "+r.get("payment_id"),"Student: "+r.get("full_name"),"Student ID: "+r.get("student_id"),"Email: "+r.get("email"),"Paid at: "+r.get("paid_at"),"Total paid: INR "+money(r.get("amount_paise")),"Refunded: INR "+money(r.get("refunded_paise")),"Billing address: "+r.get("billing_address"),"GSTIN: "+r.get("gstin"))){String clean=line.replaceAll("[^\\x20-\\x7E]","?");for(int i=0;i<clean.length();i+=75){cs.showText(clean.substring(i,Math.min(i+75,clean.length())));cs.newLineAtOffset(0,-19);}}cs.endText();
+    for(String line:List.of("HAJARA ILM ACADEMY","Payment receipt (not a GST tax invoice)","Islamic Learning Programme","Receipt: "+r.get("payment_id"),"Student: "+r.get("full_name"),"Student ID: "+r.get("student_id"),"Email: "+r.get("email"),"Paid at: "+r.get("paid_at"),"Total paid: INR "+money(r.get("amount_paise")),"Refunded: INR "+money(r.get("refunded_paise")),"Billing address: "+r.get("billing_address"))){String clean=line.replaceAll("[^\\x20-\\x7E]","?");for(int i=0;i<clean.length();i+=75){cs.showText(clean.substring(i,Math.min(i+75,clean.length())));cs.newLineAtOffset(0,-19);}}cs.endText();
    }doc.save(out);return out.toByteArray();
   }
  }
