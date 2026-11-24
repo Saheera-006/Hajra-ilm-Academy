@@ -9,7 +9,7 @@ export async function onRequest({ request }) {
   const upstream = new URL(incoming.pathname + incoming.search, BACKEND);
   const headers = new Headers(request.headers);
   // Browser Origin refers to Cloudflare. Backend must see an allowed origin.
-  if (headers.has('Origin')) headers.set('Origin', BACKEND);
+  if (headers.get('Origin') === incoming.origin) headers.set('Origin', BACKEND);
   headers.delete('Host');
   headers.delete('X-Forwarded-Host');
   headers.delete('X-Forwarded-Proto');
@@ -33,7 +33,8 @@ export async function onRequest({ request }) {
   const responseHeaders = new Headers(response.headers);
   responseHeaders.set('Cache-Control', 'no-store');
   // Spring should issue host-only cookies. Do not forward backend-domain cookies.
-  const cookies = response.headers.getSetCookie?.() || [];
+  const cookies = response.headers.getSetCookie ? response.headers.getSetCookie() :
+    response.headers.getAll ? response.headers.getAll('Set-Cookie') : []; 
   if (cookies.length) {
     responseHeaders.delete('Set-Cookie');
     for (const cookie of cookies) {

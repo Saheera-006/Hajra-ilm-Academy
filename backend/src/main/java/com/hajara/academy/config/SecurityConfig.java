@@ -18,7 +18,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.csrf.InvalidCsrfTokenException;
+import org.springframework.security.web.csrf.MissingCsrfTokenException;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.StaticHeadersWriter;
@@ -38,29 +41,16 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
             @Value("${app.rate-limit.per-minute:120}") int generalLimit,
-            @Value("${app.rate-limit.auth-per-minute:10}") int authLimit,
-            @Value("${app.security.cross-site-cookies:false}") boolean crossSiteCookies)
+            @Value("${app.rate-limit.auth-per-minute:10}") int authLimit)
             throws Exception {
 
         CsrfTokenRequestAttributeHandler csrfHandler =
                 new CsrfTokenRequestAttributeHandler();
 
-        csrfHandler.setCsrfRequestAttributeName(null);
-
-        // CSRF token cookie for the React frontend.
-        CookieCsrfTokenRepository csrfRepository =
-                CookieCsrfTokenRepository.withHttpOnlyFalse();
-
-        csrfRepository.setCookieCustomizer(cookie -> {
-            cookie.path("/");
-
-            if (crossSiteCookies) {
-                cookie.sameSite("None");
-                cookie.secure(true);
-            } else {
-                cookie.sameSite("Lax");
-            }
-        });
+        // Store CSRF in the same session as enrollment; no second cookie to synchronize.
+        HttpSessionCsrfTokenRepository csrfRepository = new HttpSessionCsrfTokenRepository();
+        csrfRepository.setHeaderName("X-XSRF-TOKEN");
+        var fallbackDenied = new AccessDeniedHandlerImpl();
 
         http
             .cors(Customizer.withDefaults())
@@ -127,7 +117,17 @@ public class SecurityConfig {
 
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(
-                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)))
+                    new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                .accessDeniedHandler((request, response, error) -> {
+                    if (error instanceof InvalidCsrfTokenException || error instanceof MissingCsrfTokenException) {
+                        response.setStatus(403);
+                        response.setContentType("application/json");
+                        response.setHeader("Cache-Control", "no-store");
+                        response.getWriter().write("{\"code\":\"CSRF_REJECTED\",\"message\":\"Secure session expired. Please try again.\"}");
+                    } else {
+                        fallbackDenied.handle(request, response, error);
+                    }
+                }))
 
             .addFilterBefore(
                 new RateLimitFilter(generalLimit, authLimit),

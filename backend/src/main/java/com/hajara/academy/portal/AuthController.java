@@ -79,7 +79,8 @@ public class AuthController {
     }
 
     @GetMapping("/csrf")
-    public Map<String, String> csrf(CsrfToken token) {
+    public Map<String, String> csrf(CsrfToken token, HttpServletResponse response) {
+        response.setHeader("Cache-Control", "no-store, private");
         return Map.of("token", token.getToken());
     }
 

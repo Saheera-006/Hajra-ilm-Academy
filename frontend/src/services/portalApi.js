@@ -10,12 +10,19 @@ export class PortalError extends Error {
   }
 }
 
-let csrfToken = null;
-
+// Share only an in-flight token request, never retain a token across writes.
+let csrfPending;
 async function loadCsrf() {
-  const res = await fetchWithTimeout(`${BASE}/api/portal/csrf`, { credentials: 'include' });
-  if (!res.ok) throw new PortalError(res.status, 'Could not start a secure session. Please try again.');
-  csrfToken = (await res.json()).token;
+  if (!csrfPending) {
+    csrfPending = (async () => {
+      const res = await fetchWithTimeout(`${BASE}/api/portal/csrf`, { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) throw new PortalError(res.status, 'Could not start a secure session. Please try again.');
+      const { token } = await res.json();
+      if (typeof token !== 'string' || !token) throw new PortalError(503, 'Could not start a secure session. Please try again.');
+      return token;
+    })().finally(() => { csrfPending = undefined; });
+  }
+  return csrfPending;
 }
 
 async function readMessage(res) {
@@ -34,27 +41,34 @@ async function readMessage(res) {
 export async function portal(path, options = {}) {
   const method = (options.method || 'GET').toUpperCase();
   const unsafe = method !== 'GET' && method !== 'HEAD';
-  if (unsafe && !csrfToken) await loadCsrf();
 
-  const send = () =>
+
+  const send = (csrfToken) =>
     fetchWithRecovery(`${BASE}/api/portal${path}`, {
       credentials: 'include',
       ...options,
       method,
       headers: {
         ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
-        ...(unsafe ? { 'X-XSRF-TOKEN': csrfToken } : {}),
         ...options.headers,
+        ...(unsafe ? { 'X-XSRF-TOKEN': csrfToken } : {}),
       },
     });
 
   let res;
-  try { res = await send(); } catch (error) {
+  try {
+    res = await send(unsafe ? await loadCsrf() : undefined);
+    // Only replay a write explicitly rejected by the CSRF filter before the controller.
+    if (unsafe && res.status === 403 && !options.signal?.aborted) {
+      const error = await res.clone().json().catch(() => null);
+      if (error?.code === 'CSRF_REJECTED') {
+        res = await send(await loadCsrf());
+      }
+    }
+  } catch (error) {
+    if (error instanceof PortalError || options.signal?.aborted) throw error;
     throw new PortalError(503, 'Server is starting or temporarily unavailable. Please retry.');
   }
-  // Never automatically replay writes after 403: the request may have had side effects.
-  // Clear the stale token so the next explicit user action fetches a fresh one.
-  if (res.status === 403 && unsafe) csrfToken = null;
   if (!res.ok) throw new PortalError(res.status, await readMessage(res));
   return res.status === 204 ? null : res.json();
 }

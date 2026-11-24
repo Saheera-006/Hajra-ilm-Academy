@@ -110,3 +110,6 @@ and open it from the icon.
 
 ### Razorpay proxy correction
 Controller calls service methods rather than reading fields on the transactional Spring proxy. Existing database and environment variables are unchanged. Run `mvn clean test` in backend (includes RazorpayProxyTest). After deploying, sign in as admin, open Payments and recover existing captured test payments using their matching Razorpay payment IDs. Do not pay again or manually mark rows paid. Confirm student account, receipt and webhook processing before enabling live payments.
+
+### Enrollment CSRF recovery
+CSRF tokens are stored in the server session and fetched without caching before writes. Only explicit CSRF-filter rejections are retried once; other failures are not replayed. Deploy backend and frontend together. Keep same-origin Cloudflare API routing and secure session cookies enabled in production. Test with `node --test frontend/tests/csrf.test.mjs` from the project root, and `mvn test` from backend. Verify on the previously affected phone before accepting real payments. If cookies are entirely blocked, enrollment still requires a browser that accepts first-party session cookies.
