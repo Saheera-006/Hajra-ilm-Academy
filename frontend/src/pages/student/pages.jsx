@@ -205,6 +205,7 @@ async function openCertificatePdf(id, download) {
 
 export function Certificates() {
   const certs = useApi('/my-certificates');
+  const receipts = useApi('/my-payments');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(null);
   async function action(id, download) {
@@ -215,6 +216,7 @@ export function Certificates() {
   }
   return (
     <>
+      <section className="space-y-2"><h2 className="font-semibold">Payment receipts</h2>{receipts.data?.map(r=><Card key={r.order_id}><p>₹{r.amount_paise/100} · {r.payment_id}</p><a target="_blank" rel="noopener noreferrer" href={`${API}/api/portal/my-payments/${r.order_id}/receipt`}>View receipt</a></Card>)}</section>
       <PageHeader title="My Certificates" description="Your official Islamic Learning Programme completion certificates." />
       {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-800">{error}</p>}
       <StatusMessage error={certs.error} />

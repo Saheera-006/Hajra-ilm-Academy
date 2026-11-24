@@ -48,6 +48,7 @@ public class StudentController {
     private final EnrollmentService enrollmentService;
     private final CurrentUser currentUser;
     private final boolean demoPayments;
+    @Value("${RAZORPAY_KEY_ID:}") private String razorpayKey;
     private final BatchService batches;
     private final JdbcTemplate jdbc;
 
@@ -67,7 +68,7 @@ public class StudentController {
 
     @GetMapping("/config")
     public Map<String, Object> config() {
-        return Map.of("demoPayments", demoPayments);
+        return Map.of("demoPayments", demoPayments && razorpayKey.isBlank());
     }
 
     @GetMapping("/courses")
@@ -138,7 +139,7 @@ public class StudentController {
     @PostMapping("/demo-checkout")
     @Transactional
     public Map<String, Object> demoCheckout(Authentication auth, @Valid @RequestBody PortalDtos.Checkout r) {
-        if (!demoPayments) {
+        if (!demoPayments || !razorpayKey.isBlank()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Demo checkout is disabled.");
         }
         PortalUser u = currentUser.require(auth);

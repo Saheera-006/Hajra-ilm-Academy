@@ -72,6 +72,8 @@ export function Register() {
   const batch = useLoad('/batches/current');
   const [form, setForm] = useState({ name: '', age: '', email: '', phone: '', password: '' });
   const [checkout, setCheckout] = useState(null);
+  const [address,setAddress]=useState('');
+  const [gstin,setGstin]=useState('');
   const [verification, setVerification] = useState(readPendingVerification);
   const [code, setCode] = useState('');
   const [result, setResult] = useState(null);
@@ -137,6 +139,20 @@ export function Register() {
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
+  async function pay() {
+    setBusy(true); setError('');
+    try {
+      if (!address.trim()) throw new Error('Enter your billing address.');
+      if (!window.Razorpay) await new Promise((resolve,reject)=>{
+        const script=document.createElement('script'); script.src='https://checkout.razorpay.com/v1/checkout.js'; script.onload=resolve; script.onerror=()=>reject(new Error('Could not load payment checkout.')); document.head.appendChild(script);
+      });
+      const order=await portal('/auth/razorpay/order',{method:'POST',body:JSON.stringify({checkoutId:checkout.checkoutId,address,gstin})});
+      const rz=new window.Razorpay({key:order.key,order_id:order.orderId,amount:order.amount,currency:'INR',name:'Hajara Ilm Academy',description:'Islamic Learning Programme',prefill:{name:order.name,email:order.email,contact:order.phone},theme:{color:'#172d43'},modal:{ondismiss:()=>setBusy(false)},handler:async r=>{
+        try {const data=await portal('/auth/razorpay/verify',{method:'POST',body:JSON.stringify({orderId:r.razorpay_order_id,paymentId:r.razorpay_payment_id,signature:r.razorpay_signature})});setResult(data);setCheckout(null);}
+        catch(e){setCheckout(old=>({...old,confirmationPending:true}));setError('Payment confirmation pending. Do not pay again. Contact the academy with '+r.razorpay_payment_id+'. '+e.message);}finally{setBusy(false);}
+      }});rz.on('payment.failed',()=>setError('Payment failed. Check your payment status before retrying.'));rz.open();
+    } catch(e){setError(e.message);setBusy(false);}
+  }
   async function simulate(success) {
     setBusy(true); setError('');
     try {
@@ -170,12 +186,12 @@ export function Register() {
         {batch.error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Could not check enrollment availability. Please try again later.</div>}
         {checkingAvailability && !verification && !checkout && !result && <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]">Checking enrollment availability…</p>}
         {!open && !checkingAvailability && !batch.error && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Enrollment is currently closed.</strong> Please wait for the next enrollment period. Please check back when applications reopen.</div>}
-        {open && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]"><strong>Enrollment is open.</strong><p className="mt-1">Fill in your details below. The current checkout is a demo simulation; no real payment is collected.</p></div>}
+        {open && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]"><strong>Enrollment is open.</strong><p className="mt-1">Fill in your details below. Verify your email to continue to payment.</p></div>}
         {result ? <div className="grid gap-4">
           <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]">{result.message}</p>
           {result.success && <>
             <p className="text-[#172d43]">Student ID: <strong>{result.studentId}</strong></p>
-            <p className="text-[#172d43]">{result.welcomeEmailSent ? 'A welcome email was sent to your verified email address.' : 'We could not send the welcome email. You can still sign in.'}</p>
+            <p className="text-[#172d43]">{result.welcomeEmailSent ? 'An email was sent to your verified email address.' : 'Email delivery is pending. You can still sign in.'}</p>
             {pushConfigured && <section className="grid gap-3 rounded-xl border border-[#d7e1eb] p-4 text-[#172d43]">
               <h2 className="font-semibold">Get academy notifications on this device</h2>
               <p className="text-sm">Sign in to finish enabling browser notifications.</p>
@@ -186,7 +202,7 @@ export function Register() {
             {result.success ? (pushConfigured ? 'Maybe later · Continue to login' : 'Continue to student login') : 'Try again'}
           </button>
         </div>
-        : checkout ? <div className="grid gap-4 text-[#172d43]"><div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm"><strong>DEMO PAYMENT — NO REAL MONEY COLLECTED</strong></div><h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Demo payment</h2><p><strong>Programme:</strong> Islamic Learning Programme</p><p><strong>One-time programme fee:</strong> ₹{Number(checkout.amount).toLocaleString('en-IN')}</p><button className={button} disabled={busy} onClick={() => simulate(true)}>Simulate Successful Payment</button><button className="rounded-xl border border-[#c9d5e1] p-3" disabled={busy} onClick={() => simulate(false)}>Simulate Failed Payment</button><button className="text-sm underline" disabled={busy} onClick={() => setCheckout(null)}>Back to registration</button></div>
+        : checkout ? <div className="grid gap-4 text-[#172d43]"><h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Programme payment</h2><p>Islamic Learning Programme</p><p>Total payable: ₹{Number(checkout.amount).toLocaleString('en-IN')}</p>{checkout.razorpay ? <><label>Billing address<textarea className={input} maxLength={500} value={address} onChange={e=>setAddress(e.target.value)}/></label><label>GSTIN (optional)<input className={input} maxLength={20} value={gstin} onChange={e=>setGstin(e.target.value)}/></label><button className={button} disabled={busy||!address.trim()||checkout.confirmationPending} onClick={pay}>Pay securely with Razorpay</button></> : checkout.demoEnabled ? <><p>Demo only — no real money collected.</p><button className={button} disabled={busy} onClick={()=>simulate(true)}>Simulate payment</button><button disabled={busy} onClick={()=>simulate(false)}>Simulate failure</button></> : <p>Online payments are not configured. Contact the academy.</p>}</div>
         : verification ? <form onSubmit={verifyEmail} className="grid gap-4 text-[#172d43]">
           <h2 ref={stepHeading} tabIndex={-1} className="text-2xl font-semibold">Verify your email</h2>
           <p>Enter the six-digit code from your email. It expires in 15 minutes. Stay on the same browser and website address where you started enrollment.</p>
@@ -204,7 +220,7 @@ export function Register() {
           {fields.map(([name,label,type,auto,placeholder]) => <label key={name} className={`grid gap-2 text-sm font-semibold text-[#243d55] ${name==='password'?'sm:col-span-2':''}`}>
             <span>{label}</span><div className="relative"><input className={`${input} ${name==='password'?'pr-24':''}`} name={name} type={name==='password'&&showPassword?'text':type} value={form[name]} onChange={update} autoComplete={auto} placeholder={placeholder} disabled={!open || busy} min={name==='age'?5:undefined} max={name==='age'?120:undefined} minLength={name==='password'?10:undefined} maxLength={name==='password'?72:name==='phone'?30:undefined} required />{name==='password'&&<button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg px-2 py-1 text-xs font-semibold text-[#30577b]" onClick={()=>setShowPassword(v=>!v)}>{showPassword?'Hide':'Show'}</button>}</div>
           </label>)}
-          <button className="rounded-xl bg-[#172d43] px-5 py-4 font-bold text-white shadow-md transition hover:bg-[#25435f] disabled:cursor-not-allowed disabled:bg-[#526a82] sm:col-span-2" disabled={!open || busy}>{busy?'Please wait…':'Continue to demo payment'}</button>
+          <button className="rounded-xl bg-[#172d43] px-5 py-4 font-bold text-white shadow-md transition hover:bg-[#25435f] disabled:cursor-not-allowed disabled:bg-[#526a82] sm:col-span-2" disabled={!open || busy}>{busy?'Please wait…':'Continue to payment'}</button>
           <p className="text-sm text-[#52657b] sm:col-span-2">Already enrolled? <Link to="/login" className="font-semibold text-[#254b70] underline">Student login</Link></p>
         </form>}
         {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>}
@@ -297,6 +313,7 @@ export function Admin({ tab: tabProp = 'Overview' }) {
   const students = useLoad('/admin/students');
   const enroll = useLoad('/admin/enrollments');
   const payments = useLoad('/admin/payments');
+  const razor = useLoad('/admin/razorpay');
   const courses = useLoad('/admin/courses');
   const news = useLoad('/admin/announcements');
   const currentBatch = useLoad('/batches/current');
@@ -463,7 +480,7 @@ Notifications: 'Send in-app notices to students.',
 
       </section>}
       {tab === 'Programme' && <ProgrammeEditor />}
-      {tab === 'Payments' && <section><h2 className="mb-3 text-xl font-semibold">Payment ledger</h2><p className="mb-3 text-sm text-slate-500">Read-only transaction records. Demo transactions are not proof of real payment.</p><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b bg-slate-50">{['ID','Enrollment','Provider','Status','Amount','Reference'].map(x => <th className="p-3" key={x}>{x}</th>)}</tr></thead><tbody>{payments.data?.map(p => <tr className="border-b" key={p.id}><td className="p-3">{p.id}</td><td className="p-3">{p.enrollmentId}</td><td className="p-3">{p.provider}</td><td className="p-3">{p.status}</td><td className="p-3">₹{p.amount}</td><td className="p-3">{p.referenceCode}</td></tr>)}</tbody></table></div></section>}
+      {tab === 'Payments' && <section><h2 className="text-xl font-semibold">Razorpay financial records</h2><p className="text-sm">Gateway-reported fees include GST. Net shown is an estimate, not a bank settlement.</p><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr>{['Student','Payment','Status','Paid','Commission','Gateway GST','Refund','Estimated net','Receipt'].map(x=><th key={x} className="p-2">{x}</th>)}</tr></thead><tbody>{razor.data?.map(r=><tr key={r.order_id}>{[r.full_name,r.payment_id||r.order_id,r.status,r.status==='PAID'?r.amount_paise/100:'Pending',r.fee_paise==null||r.tax_paise==null?'Pending':(r.fee_paise-r.tax_paise)/100,r.tax_paise==null?'Pending':r.tax_paise/100,r.refunded_paise/100,r.fee_paise==null?'Pending':(r.amount_paise-r.fee_paise-r.refunded_paise)/100].map((v,i)=><td key={i} className="p-2">{v}</td>)}<td>{r.email_sent?'Sent':r.payment_id?<button onClick={async()=>{try{await portal('/admin/razorpay/'+r.order_id+'/retry',{method:'POST'});razor.refresh();}catch(e){alert(e.message)}}}>Retry email</button>:'Pending'}</td></tr>)}</tbody></table></div><h2 className="mb-3 text-xl font-semibold">Payment ledger</h2><p className="mb-3 text-sm text-slate-500">Read-only transaction records. Demo transactions are not proof of real payment.</p><div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b bg-slate-50">{['ID','Enrollment','Provider','Status','Amount','Reference'].map(x => <th className="p-3" key={x}>{x}</th>)}</tr></thead><tbody>{payments.data?.map(p => <tr className="border-b" key={p.id}><td className="p-3">{p.id}</td><td className="p-3">{p.enrollmentId}</td><td className="p-3">{p.provider}</td><td className="p-3">{p.status}</td><td className="p-3">₹{p.amount}</td><td className="p-3">{p.referenceCode}</td></tr>)}</tbody></table></div></section>}
       {tab === 'Announcements' && <section><h2 className="mt-7 text-xl font-semibold">Announcements</h2>
       {news.data?.map((n) => (
         <div key={n.id} className="flex items-start justify-between gap-3 border-b py-2 text-sm">

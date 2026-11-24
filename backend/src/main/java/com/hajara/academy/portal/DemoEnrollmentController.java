@@ -92,11 +92,11 @@ public class DemoEnrollmentController {
             var batch = batches.openBatch();
             if (batch.isEmpty() || ((Number) batch.get("id")).longValue() != pending.batchId())
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Enrollment window has closed.");
-            return Map.of("checkoutId", pending.checkoutId(), "amount", batch.get("course_fee"));
+            return Map.of("checkoutId", pending.checkoutId(), "amount", batch.get("course_fee"), "razorpay", !razorpayKey.isBlank(), "demoEnabled", demoEnabled && razorpayKey.isBlank());
         }
     }
 
-    private Pending pending(HttpSession session, String checkoutId) {
+    Pending pending(HttpSession session, String checkoutId) {
         if (!(session.getAttribute(PENDING) instanceof Pending pending) ||
                 !pending.checkoutId().equals(checkoutId) ||
                 !pending.createdAt().plus(Duration.ofMinutes(15)).isAfter(Instant.now()))
@@ -104,8 +104,16 @@ public class DemoEnrollmentController {
         return pending;
     }
 
+    Pending verifiedPending(HttpSession session, String id) {
+        Pending p = pending(session,id);
+        if (!Boolean.TRUE.equals(session.getAttribute(VERIFICATION))) throw new ResponseStatusException(HttpStatus.CONFLICT,"Verify email first.");
+        return p;
+    }
+    @org.springframework.beans.factory.annotation.Value("${app.portal.demo-payments:false}") private boolean demoEnabled;
+    @org.springframework.beans.factory.annotation.Value("${RAZORPAY_KEY_ID:}") private String razorpayKey;
     @PostMapping("/confirm")
     public Map<String, Object> confirm(@RequestBody Confirmation confirmation, HttpSession session) {
+        if (!demoEnabled || !razorpayKey.isBlank()) throw new ResponseStatusException(HttpStatus.FORBIDDEN,"Demo payment disabled.");
         Pending pending;
         Map<String, Object> result;
         synchronized (session) {

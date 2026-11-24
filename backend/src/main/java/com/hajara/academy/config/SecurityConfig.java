@@ -66,6 +66,7 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
 
             .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/api/payments/razorpay/webhook")
                 .csrfTokenRepository(csrfRepository)
                 .csrfTokenRequestHandler(csrfHandler))
 
@@ -87,6 +88,7 @@ public class SecurityConfig {
                     "camera=(), microphone=(), geolocation=(), payment=()")))
 
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.POST,"/api/payments/razorpay/webhook").permitAll()
                 .requestMatchers("/error").permitAll()
 
                 .requestMatchers(HttpMethod.OPTIONS, "/api/**")

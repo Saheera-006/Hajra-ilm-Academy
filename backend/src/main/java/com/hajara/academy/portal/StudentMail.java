@@ -128,11 +128,17 @@ class StudentMail {
         );
     }
 
+    boolean receipt(String email, String reference, byte[] pdf) {
+        return sendEmail(email, "Payment receipt | Hajara Ilm Academy", "Your payment was verified. Your receipt is attached. Reference: " + reference, null, pdf);
+    }
+    private boolean sendEmail(String email,String subject,String plain,String html) {
+        return sendEmail(email,subject,plain,html,null);
+    }
     private boolean sendEmail(
             String email,
             String subject,
             String plain,
-            String html) {
+            String html, byte[] pdf) {
 
         if (apiKey.isBlank() || senderEmail.isBlank()) {
             LOG.error("Brevo email configuration is incomplete");
@@ -156,6 +162,7 @@ class StudentMail {
                 payload.put("htmlContent", html);
             }
 
+            if (pdf != null) { var attachment = payload.putArray("attachment").addObject(); attachment.put("name","Hajara-receipt.pdf"); attachment.put("content",java.util.Base64.getEncoder().encodeToString(pdf)); }
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(BREVO_URL)
                     .timeout(Duration.ofSeconds(20))

@@ -28,6 +28,11 @@ public class DemoEnrollmentService {
         var batch = batches.openBatch();
         if (batch.isEmpty() || ((Number)batch.get("id")).longValue() != pending.batchId())
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Enrollment window has closed.");
+        return completePaid(pending, ((Number)batch.get("course_id")).longValue(), new BigDecimal(batch.get("course_fee").toString()), "DEMO", "DEMO-" + pending.checkoutId());
+    }
+
+    @Transactional
+    public Map<String,Object> completePaid(DemoEnrollmentController.Pending pending, Long courseId, BigDecimal amount, String provider, String reference) {
         if (users.existsByEmailIgnoreCase(pending.email()) || users.existsByPhone(pending.phone()))
             throw new ResponseStatusException(HttpStatus.CONFLICT, "An account with these details already exists.");
         PortalUser user = new PortalUser();
@@ -46,7 +51,7 @@ public class DemoEnrollmentService {
 
         PortalEnrollment enrollment = new PortalEnrollment();
         enrollment.userId = user.id;
-        enrollment.courseId = ((Number)batch.get("course_id")).longValue();
+        enrollment.courseId = courseId;
         enrollment.batchId = pending.batchId();
         enrollment.plan = "COURSE";
         enrollment.renewalMode = "MANUAL";
@@ -56,13 +61,13 @@ public class DemoEnrollmentService {
 
         PortalPayment payment = new PortalPayment();
         payment.enrollmentId = enrollment.id;
-        payment.provider = "DEMO";
-        payment.status = "SIMULATED";
-        payment.amount = (BigDecimal) batch.get("course_fee");
-        payment.referenceCode = "DEMO-" + pending.checkoutId();
+        payment.provider = provider;
+        payment.status = "DEMO".equals(provider) ? "SIMULATED" : "PAID";
+        payment.amount = amount;
+        payment.referenceCode = reference;
         payments.save(payment);
         String studentId = batches.assignStudentNumber(user.id);
-        return Map.of("success", true, "demo", true, "studentId", studentId,
-            "message", "Demo payment simulated successfully. Student account created. No real payment received.");
+        return Map.of("success", true, "demo", "DEMO".equals(provider), "studentId", studentId,
+            "message", "DEMO".equals(provider) ? "Demo payment simulated successfully. No real payment received." : "Payment verified. Student account created.");
     }
 }
