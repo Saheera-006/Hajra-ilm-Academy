@@ -1,5 +1,4 @@
 import { fetchWithRecovery } from './fetchWithRecovery';
-import { fetchWithTimeout } from './requestTimeout';
 // API client for the student / admin portal: cookie session + CSRF token handling.
 const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -15,10 +14,10 @@ let csrfPending;
 async function loadCsrf() {
   if (!csrfPending) {
     csrfPending = (async () => {
-      const res = await fetchWithTimeout(`${BASE}/api/portal/csrf`, { credentials: 'include', cache: 'no-store' });
-      if (!res.ok) throw new PortalError(res.status, 'Could not start a secure session. Please try again.');
+      const res = await fetchWithRecovery(`${BASE}/api/portal/csrf`, { credentials: 'include', cache: 'no-store' });
+      if (!res.ok) throw new PortalError(res.status, 'Could not start a secure session. The server may still be starting. Please retry.');
       const { token } = await res.json();
-      if (typeof token !== 'string' || !token) throw new PortalError(503, 'Could not start a secure session. Please try again.');
+      if (typeof token !== 'string' || !token) throw new PortalError(503, 'Could not start a secure session. The server may still be starting. Please retry.');
       return token;
     })().finally(() => { csrfPending = undefined; });
   }

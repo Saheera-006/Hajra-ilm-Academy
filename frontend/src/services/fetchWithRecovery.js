@@ -1,10 +1,10 @@
 import { fetchWithTimeout } from './requestTimeout';
 
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-const transient = new Set([502, 503, 504]);
+const transient = new Set([502, 503, 504, 520, 522, 524]);
 
 // Only idempotent reads are retried; writes may have succeeded upstream.
-export async function fetchWithRecovery(url, options = {}, timeoutMs = 30000) {
+export async function fetchWithRecovery(url, options = {}, timeoutMs = 65000) {
   const method = (options.method || 'GET').toUpperCase();
   const attempts = method === 'GET' || method === 'HEAD' ? 3 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {

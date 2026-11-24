@@ -47,7 +47,8 @@ function useLoad(path) {
 
 /** Keeps signed-out visitors (and the wrong role) away from private pages. The backend enforces this too. */
 export function RequireAuth({ role, loginPath = '/login', children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, connectionError, refresh } = useAuth();
+  if (connectionError) return <Panel title="Connection interrupted"><p>The server may be starting. Your session has not been confirmed.</p><button className={button} onClick={() => void refresh()}>Retry connection</button></Panel>;
   if (loading) return <Panel title="Loading…"><p className="text-sm text-slate-600">Checking your session…</p></Panel>;
   if (!user) return <Navigate to={loginPath} replace />;
   if (role && user.role !== role) {
@@ -180,8 +181,8 @@ export function Register() {
           <div><p className="text-xs font-bold uppercase tracking-wider text-[#52657b]">Programme</p><h2 className="mt-1 font-heading text-xl font-semibold text-[#172d43]">Islamic Learning Programme</h2><p lang="ta" className="mt-1 text-sm text-[#40566e]">இஸ்லாமியக் கல்விப் பாடத்திட்டம்</p></div>
           <div><p className="text-xs font-bold uppercase tracking-wider text-[#52657b]">Four learning areas</p><p className="mt-1 text-sm leading-6 text-[#40566e]">Quran & Tajweed · Kolkai · Sattathittangal & Ethics · Islamic History</p></div>
         </div>
-        {batch.error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Could not check enrollment availability. Please try again later.</div>}
-        {checkingAvailability && !verification && !checkout && !result && <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]">Checking enrollment availability…</p>}
+        {batch.error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">Could not check enrollment availability. Your form details are retained. <button type="button" className="underline font-semibold" onClick={() => void batch.refresh()}>Retry connection</button></div>}
+        {checkingAvailability && !verification && !checkout && !result && <p role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]">Connecting to Hajara Ilm Academy… The server may be starting. Please wait.</p>}
         {!open && !checkingAvailability && !batch.error && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Enrollment is currently closed.</strong> Please wait for the next enrollment period. Please check back when applications reopen.</div>}
         {open && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]"><strong>Enrollment is open.</strong><p className="mt-1">Fill in your details below. Verify your email to continue to payment.</p></div>}
         {result ? <div className="grid gap-4">
