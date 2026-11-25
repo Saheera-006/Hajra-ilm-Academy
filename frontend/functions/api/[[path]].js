@@ -23,7 +23,7 @@ export async function onRequest({ request }) {
     body: ['GET', 'HEAD'].includes(request.method) ? undefined : request.body,
     redirect: 'manual',
     cache: 'no-store',
-    signal: AbortSignal.timeout(60000),
+    signal: AbortSignal.timeout(55000),
   });
   } catch {
     return new Response(JSON.stringify({ message: 'Server is starting or temporarily unavailable. Please retry.' }), {

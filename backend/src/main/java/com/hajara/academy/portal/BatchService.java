@@ -30,8 +30,8 @@ public class BatchService {
   return rows.get(0);
  }
  public Map<String,Object> requireManualBatch(Long batchId){
-  var rows=jdbc.queryForList("SELECT * FROM academy_batches WHERE id=? AND status IN ('OPEN','CLOSED','DRAFT')",batchId);
-  if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Select a non-completed batch.");
+  var rows=jdbc.queryForList("SELECT * FROM academy_batches WHERE id=? AND status IN ('OPEN','CLOSED')",batchId);
+  if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.CONFLICT,"Select an open or closed batch. Completed/draft batches cannot accept manual enrollment.");
   return rows.get(0);
  }
  /** Enrollment expiry derived from the batch end date; null when no end date is set (access lasts until the batch is completed). */
@@ -66,7 +66,6 @@ public class BatchService {
  @Transactional
  public Map<String,Object> create(Map<String,String> b){
   String name=name(b,null);
-  if(name.equalsIgnoreCase("Test Batch"))throw new ResponseStatusException(HttpStatus.CONFLICT,"Test Batch is already provided by the system");
   LocalDateTime starts=parse(b.get("classesStartAt"),false);
   LocalDateTime ends=parse(b.get("classesEndAt"),true);
   LocalDateTime closes=parse(b.get("enrollmentClosesAt"),true);
@@ -97,8 +96,6 @@ public class BatchService {
   var old=rows.get(0);
   // Completed batch metadata may be corrected by an administrator; its status stays completed.
   String name=name(b,String.valueOf(old.get("name")));
-  if(((Number)old.get("batch_number")).intValue()==0)name="Test Batch";
-  else if(name.equalsIgnoreCase("Test Batch"))throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Reserved batch name");
   // A key that is present (even empty) replaces the stored value; an absent key leaves it unchanged.
   LocalDateTime starts=b.containsKey("classesStartAt")?parse(b.get("classesStartAt"),false):ts(old.get("classes_start_at"));
   LocalDateTime ends=b.containsKey("classesEndAt")?parse(b.get("classesEndAt"),true):ts(old.get("classes_end_at"));
@@ -155,39 +152,15 @@ public class BatchService {
  /** Only never-used batches can be permanently deleted; foreign keys provide an additional safeguard. */
  @Transactional
  public Map<String,Object> deleteUnused(Long id){
-  var rows=jdbc.queryForList("SELECT id,status,next_roll,batch_number FROM academy_batches WHERE id=? FOR UPDATE",id);
+  var rows=jdbc.queryForList("SELECT id,status,next_roll FROM academy_batches WHERE id=? FOR UPDATE",id);
   if(rows.isEmpty())throw new ResponseStatusException(HttpStatus.NOT_FOUND,"Batch not found");
   var row=rows.get(0);
-  if(((Number)row.get("batch_number")).intValue()==0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Use Restart Test Batch instead");
   Integer enrolled=jdbc.queryForObject("SELECT COUNT(*) FROM portal_enrollments WHERE batch_id=?",Integer.class,id);
   if((enrolled!=null&&enrolled>0)||((Number)row.get("next_roll")).intValue()>1)
    throw new ResponseStatusException(HttpStatus.CONFLICT,"This batch has student history. It cannot be deleted or its number reused.");
   try{jdbc.update("DELETE FROM academy_batches WHERE id=?",id);}
   catch(org.springframework.dao.DataIntegrityViolationException ex){throw new ResponseStatusException(HttpStatus.CONFLICT,"Batch is referenced by existing records and cannot be deleted.");}
   return Map.of("message","Unused batch deleted. Its number is available again.");
- }
- @Transactional
- public Map<String,Object> restartTest(Long id){
-  var batch=jdbc.queryForList("SELECT batch_number FROM academy_batches WHERE id=? FOR UPDATE",id);
-  if(batch.isEmpty()||((Number)batch.get(0).get("batch_number")).intValue()!=0)throw new ResponseStatusException(HttpStatus.BAD_REQUEST,"Only Test Batch can be restarted");
-  var roster=jdbc.queryForList("SELECT u.id FROM portal_users u JOIN portal_enrollments e ON e.user_id=u.id WHERE e.batch_id=? AND u.role='STUDENT'",Long.class,id);
-  for(Long user:roster){
-   if(jdbc.queryForObject("SELECT COUNT(*) FROM portal_enrollments WHERE user_id=? AND (batch_id IS NULL OR batch_id<>?)",Integer.class,user,id)>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"A test student has another enrollment; reset stopped");
-  }
-  if(jdbc.queryForObject("SELECT COUNT(*) FROM razorpay_orders WHERE batch_id=? AND status='PENDING'",Integer.class,id)>0)throw new ResponseStatusException(HttpStatus.CONFLICT,"Pending Razorpay orders exist. Resolve them before restarting to avoid losing a payment.");
-  jdbc.update("UPDATE razorpay_orders SET user_id=NULL,email_sent=TRUE WHERE batch_id=? AND status='PAID'",id);
-  for(Long user:roster){
-   jdbc.update("INSERT INTO test_batch_payment_archive(reference_code,provider,status,amount,student_number) SELECT p.reference_code,p.provider,p.status,p.amount,u.student_number FROM portal_payments p JOIN portal_enrollments e ON e.id=p.enrollment_id JOIN portal_users u ON u.id=e.user_id WHERE e.user_id=? AND p.provider LIKE 'OFFLINE_%'",user);
-   jdbc.update("DELETE FROM academy_certificate_uploaded_pdfs WHERE certificate_id IN (SELECT c.id FROM academy_certificates c JOIN portal_enrollments e ON e.id=c.enrollment_id WHERE e.user_id=?)",user);
-   for(String table:List.of("academy_certificate_manual_drafts","academy_certificate_drafts","academy_certificates","portal_attendance_audit","portal_attendance","portal_payments"))jdbc.update("DELETE FROM "+table+" WHERE enrollment_id IN (SELECT id FROM portal_enrollments WHERE user_id=?)",user);
-   jdbc.update("DELETE FROM academy_notifications WHERE user_id=?",user);
-   for(String table:List.of("student_password_resets","student_remembered_devices","student_push_devices","admin_recovery_codes","admin_trusted_devices"))jdbc.update("DELETE FROM "+table+" WHERE user_id=?",user);
-   jdbc.update("DELETE FROM portal_enrollments WHERE user_id=? AND batch_id=?",user,id);
-   jdbc.update("DELETE FROM portal_users WHERE id=? AND role='STUDENT'",user);
-  }
-  for(String table:List.of("academy_notes","academy_meetings","portal_announcements","academy_notifications"))jdbc.update("DELETE FROM "+table+" WHERE batch_id=?",id);
-  jdbc.update("UPDATE academy_batches SET status='CLOSED',next_roll=1,enrollment_closes_at=NULL,classes_start_at=NULL,classes_end_at=NULL,whatsapp_link=NULL WHERE id=?",id);
-  return Map.of("message","Test Batch reset. Open registration when ready.");
  }
  public List<Map<String,Object>> students(Long id){
   return jdbc.queryForList("SELECT u.id AS userId,u.full_name AS name,u.email,u.student_number AS studentId,e.id AS enrollmentId,e.status AS enrollmentStatus FROM portal_enrollments e JOIN portal_users u ON u.id=e.user_id WHERE e.batch_id=? ORDER BY u.id",id);

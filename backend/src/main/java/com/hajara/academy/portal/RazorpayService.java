@@ -40,7 +40,7 @@ public class RazorpayService {
  @Transactional
  public Map<String,Object> order(DemoEnrollmentController.Pending p){
   var existing=db.queryForList("SELECT * FROM razorpay_orders WHERE checkout_id=?",p.checkoutId());
-  if(!existing.isEmpty()){if("RESET".equals(existing.get(0).get("status")))throw bad("Checkout reset. Start registration again.");return checkout(existing.get(0));}
+  if(!existing.isEmpty())return checkout(existing.get(0));
   var b=batches.openBatch();if(b.isEmpty()||((Number)b.get("id")).longValue()!=p.batchId())throw bad("Enrollment closed.");
   long amount=new BigDecimal(b.get("course_fee").toString()).movePointRight(2).longValueExact();if(amount<100)throw bad("Minimum payment is INR 1.");
   var o=api("orders",Map.of("amount",amount,"currency","INR","receipt",p.checkoutId()));
@@ -53,7 +53,6 @@ public class RazorpayService {
  public Map<String,Object> capture(String order,String payment){
   if(order==null||payment==null||!order.matches("order_[A-Za-z0-9]+")||!payment.matches("pay_[A-Za-z0-9]+"))throw bad("Invalid payment reference.");
   var rows=db.queryForList("SELECT * FROM razorpay_orders WHERE order_id=? FOR UPDATE",order);if(rows.isEmpty())throw bad("Unknown order.");var r=rows.get(0);
-  if("RESET".equals(r.get("status")))throw bad("Checkout reset; contact administrator if payment was made.");
   var p=api("payments/"+payment,null);
   if(!order.equals(p.path("order_id").asText())||!payment.equals(p.path("id").asText())||!"INR".equals(p.path("currency").asText())||p.path("amount").asLong()!=((Number)r.get("amount_paise")).longValue())throw bad("Payment mismatch.");
   if(!"captured".equals(p.path("status").asText())&&!"refunded".equals(p.path("status").asText()))throw bad("Payment not captured yet.");

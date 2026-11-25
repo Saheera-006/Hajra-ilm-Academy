@@ -113,19 +113,3 @@ Controller calls service methods rather than reading fields on the transactional
 
 ### Enrollment CSRF recovery
 CSRF tokens are stored in the server session and fetched without caching before writes. Only explicit CSRF-filter rejections are retried once; other failures are not replayed. Deploy backend and frontend together. Keep same-origin Cloudflare API routing and secure session cookies enabled in production. Test with `node --test frontend/tests/csrf.test.mjs` from the project root, and `mvn test` from backend. Verify on the previously affected phone before accepting real payments. If cookies are entirely blocked, enrollment still requires a browser that accepts first-party session cookies.
-
-## Offline enrollment and combined welcome email
-
-Admin > Students > Add Student records a fully paid offline enrollment (cash, UPI or bank transfer) in an open or closed batch. The amount must equal the batch fee. Admin confirms the student's email and payment; a random inaccessible password is stored as a hash, and the student uses the existing email OTP Forgot Password flow to set a password. No plaintext password is emailed. Offline transactions are stored in the existing payment ledger, not Razorpay orders. The student can download the receipt from the payment receipts section.
-
-Verified Razorpay enrollments and paid offline enrollments send a branded welcome email with login URL, student ID, registered email and PDF receipt. The assigned batch WhatsApp section is omitted when no valid link is set. Demo enrollment sends a welcome email without a real payment receipt. Set `PUBLIC_WEBSITE_URL` on Render if the frontend URL changes (default https://hajarailmacademy.pages.dev). Existing Brevo settings are reused. An email delivery failure does not undo a committed enrollment. Online receipt retry uses the existing admin payment screen; offline students can use Forgot Password and download their receipt after login. Offline welcome resend is not implemented.
-
-Fresh database: existing Hikari `createDatabaseIfNotExist: true`, Flyway V1–V20 and AdminBootstrap are retained. TiDB must grant database creation permission; otherwise manually create the empty database before starting the backend. Admin bootstrap requires ADMIN_EMAIL, ADMIN_PASSWORD (16+ characters), and ADMIN_MFA_ENCRYPTION_KEY. No automatic destructive reset was added. Dropping a database does not cancel Razorpay transactions.
-
-Verification in editing environment: existing Node CSRF tests passed (3/3). Maven unavailable; frontend dependencies unavailable in offline npm cache, so full builds and live TiDB/Brevo/Razorpay integration tests were not executed. Test in a disposable database before deploying.
-
-### Certificate email and manual enrollment update
-- Modal focus is initialized only when opened, not on each form edit.
-- Admin manual enrollment accepts OPEN, CLOSED and DRAFT batches; completed batches remain excluded. Batch fetch failures are shown with retry.
-- V22 adds certificate email status. Generated and uploaded certificates trigger email after issuance commits. Admin can resend from Certificates. SENT means the email provider accepted the request, not confirmed inbox delivery. Existing certificates are NOT_SENT until manually resent.
-- Existing Brevo configuration is reused. No database reset is required. Email attempts are synchronous after commit and can take time; issuance is retained if email fails. Existing batch draft generation still requires individual approval.

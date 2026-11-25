@@ -23,8 +23,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class ManualCertificateController {
  @Value("${app.public-url:${APP_PUBLIC_URL:https://hajra-ilm-academy.pages.dev}}") private String publicUrl;
  private final JdbcTemplate db;
- private final CurrentUser current; private final CertificateEmailService email;
- public ManualCertificateController(JdbcTemplate db,CurrentUser current,CertificateEmailService email){this.email=email;this.db=db;this.current=current;}
+ private final CurrentUser current;
+ public ManualCertificateController(JdbcTemplate db,CurrentUser current){this.db=db;this.current=current;}
  private void admin(Authentication auth){if(!"ADMIN".equals(current.require(auth).role))throw new ResponseStatusException(HttpStatus.FORBIDDEN);}
  private Map<String,Object> draft(Long id){
   var rows=db.queryForList("SELECT id,enrollment_id,certificate_code,student_name,completion_date,created_at FROM academy_certificate_manual_drafts WHERE id=?",id);
@@ -88,7 +88,7 @@ public class ManualCertificateController {
   db.update("INSERT INTO academy_certificate_uploaded_pdfs(certificate_id,pdf_data) SELECT ?,pdf_data FROM academy_certificate_manual_drafts WHERE id=?",certId,id);
   db.update("DELETE FROM academy_certificate_manual_drafts WHERE id=?",id);
   db.update("DELETE FROM academy_certificate_drafts WHERE enrollment_id=?",enrollment);
-  email.afterIssue(certId);return Map.of("certificateId",certId,"certificateCode",d.get("certificate_code"));
+  return Map.of("certificateId",certId,"certificateCode",d.get("certificate_code"));
  }
  @DeleteMapping("/{id}") public Map<String,Object> discard(Authentication auth,@PathVariable Long id){admin(auth);db.update("DELETE FROM academy_certificate_manual_drafts WHERE id=?",id);return Map.of("deleted",true);}
 }

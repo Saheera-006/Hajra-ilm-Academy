@@ -14,6 +14,5 @@ public class BatchController {
  @PutMapping("/admin/batches/{id}") public Map<String,Object> update(Authentication auth,HttpServletRequest req,@PathVariable Long id,@RequestBody Map<String,String> body){var result=batches.update(id,body);audit.record(current.require(auth).id,"BATCH_SCHEDULE_UPDATED",req,"Batch #"+id);return result;}
  @PutMapping("/admin/batches/{id}/status") public Map<String,Object> status(Authentication auth,HttpServletRequest req,@PathVariable Long id,@RequestBody Map<String,String> body){var result=batches.status(id,body.get("status"));audit.record(current.require(auth).id,"BATCH_STATUS",req,"Batch #"+id+" -> "+body.get("status"));return result;}
  @DeleteMapping("/admin/batches/{id}") public Map<String,Object> delete(Authentication auth,HttpServletRequest req,@PathVariable Long id){var result=batches.deleteUnused(id);audit.record(current.require(auth).id,"BATCH_DELETED",req,"Unused batch #"+id);return result;}
- @PostMapping("/admin/batches/{id}/restart") public Map<String,Object> restart(Authentication auth,HttpServletRequest req,@PathVariable Long id){var result=batches.restartTest(id);audit.record(current.require(auth).id,"TEST_BATCH_RESET",req,"Batch #"+id);return result;}
  @GetMapping("/admin/batches/{id}/students") public List<Map<String,Object>> students(@PathVariable Long id){return batches.students(id);}
 }

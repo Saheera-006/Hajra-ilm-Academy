@@ -1,2 +1,0 @@
-INSERT INTO academy_batches(course_id,name,batch_number,enrollment_opens_at,course_fee,status,next_roll) SELECT id,'Test Batch',0,UTC_TIMESTAMP(6),1,'CLOSED',1 FROM portal_courses WHERE id=(SELECT MIN(id) FROM portal_courses) AND NOT EXISTS (SELECT 1 FROM academy_batches WHERE batch_number=0);
-CREATE TABLE test_batch_payment_archive (reference_code VARCHAR(80) PRIMARY KEY, provider VARCHAR(30) NOT NULL, status VARCHAR(30) NOT NULL, amount DECIMAL(12,2) NOT NULL, student_number VARCHAR(40), archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);

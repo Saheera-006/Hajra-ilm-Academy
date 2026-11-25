@@ -234,7 +234,7 @@ public class AdminOpsController {
                 " b.name AS batchName, " +
                 " e.status AS enrollmentStatus, " +
                 " u.email, " +
-                " u.phone, CASE WHEN EXISTS (SELECT 1 FROM portal_payments pp WHERE pp.enrollment_id=e.id AND pp.provider LIKE 'OFFLINE_%') THEN 'OFFLINE' ELSE 'ONLINE' END AS registrationSource " +
+                " u.phone " +
 
                 where +
 
