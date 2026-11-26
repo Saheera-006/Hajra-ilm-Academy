@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      if ('%PROD%' === 'true') {
+        // Wake Render as soon as the page loads, independently of React and the API proxy.
+        fetch('https://hajara-ilm-academy-backend.onrender.com/', {
+          mode: 'no-cors',
+          credentials: 'omit',
+          cache: 'no-store',
+          keepalive: true,
+        }).catch(() => {});
+      }
+    </script>
     <link rel="manifest" href="/student.webmanifest" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
