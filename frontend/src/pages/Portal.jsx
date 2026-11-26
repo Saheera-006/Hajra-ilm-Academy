@@ -185,7 +185,7 @@ export function Register() {
         {checkingAvailability && !verification && !checkout && !result && <div role="status" className="grid min-h-48 place-content-center justify-items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-6 text-center text-[#172d43]">
           <RefreshCw aria-hidden="true" className="h-7 w-7 motion-safe:animate-spin" />
           <h2 className="font-semibold">Enrollment is loading…</h2>
-          <p className="text-sm">Please stay on this page. It will update automatically when enrollment status is available.</p>
+          <p className="text-sm">This may take up to 5 minutes. Keep this page open.</p>
         </div>}
         {!open && !checkingAvailability && !batch.error && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><strong>Enrollment is currently closed.</strong> Please wait for the next enrollment period. Please check back when applications reopen.</div>}
         {open && !verification && !checkout && !result && <div role="status" className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-[#172d43]"><strong>Enrollment is open.</strong><p className="mt-1">Fill in your details below. Verify your email to continue to payment.</p></div>}
