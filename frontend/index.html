@@ -4,7 +4,7 @@
     <script>
       if ('%PROD%' === 'true') {
         // Wake Render as soon as the page loads, independently of React and the API proxy.
-        fetch('https://hajara-ilm-academy-backend.onrender.com/', {
+        fetch('https://hajara-ilm-academy-backend.onrender.com/api/public/site', {
           mode: 'no-cors',
           credentials: 'omit',
           cache: 'no-store',
